@@ -113,17 +113,61 @@ h2 { font-size: 1.05rem; }
     border: 1px solid var(--border);
 }
 .book-list li + li { border-top: 1px solid var(--border); }
-.book-list a {
+
+.book-row { display: flex; align-items: flex-start; }
+.book-link {
+    flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.95rem 1rem;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0.85rem 0.5rem 0.85rem 1rem;
     text-decoration: none;
     color: var(--text);
-    font-size: 1rem;
-    min-height: 44px;
 }
-.book-list .chevron { color: var(--muted); font-size: 1.3rem; }
+.book-name {
+    font-size: 1rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.book-updated {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.15rem;
+}
+
+.book-menu { flex-shrink: 0; }
+.book-menu summary {
+    list-style: none;
+    cursor: pointer;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 1.3rem;
+    line-height: 1;
+}
+.book-menu summary::-webkit-details-marker { display: none; }
+.book-menu[open] summary { color: var(--text); }
+.book-menu-panel {
+    display: flex;
+    flex-direction: column;
+    padding: 0 0.75rem 0.75rem;
+    min-width: 100px;
+}
+.book-menu-panel a {
+    padding: 0.55rem 0.25rem;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.9rem;
+    text-align: right;
+}
+.book-menu-panel a.danger { color: var(--red); }
 
 .fab {
     position: fixed;
@@ -233,19 +277,6 @@ form > button[type="submit"] { display: block; width: 100%; }
     border-radius: 8px;
     font-size: 0.85rem;
 }
-
-.danger-zone {
-    text-align: center;
-    margin: 1.5rem 0 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border);
-}
-.danger-link {
-    color: var(--red);
-    font-size: 0.85rem;
-    text-decoration: none;
-}
-.danger-link:hover { text-decoration: underline; }
 
 /* summary bar */
 .summary-bar {

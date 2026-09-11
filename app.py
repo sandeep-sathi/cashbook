@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 from collections import deque
-from datetime import date
+from datetime import date, datetime, timezone
 from urllib.parse import urlparse
 
 from flask import Flask, flash, redirect, render_template, request, Response, url_for
@@ -136,6 +136,32 @@ def _send_reset_email_safe(to_email, reset_url):
 @app.template_filter("money")
 def money_filter(cents):
     return f"{cents / 100:,.2f}"
+
+
+@app.template_filter("timeago")
+def timeago_filter(value):
+    if not value:
+        return ""
+    try:
+        dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return value
+
+    delta = datetime.now(timezone.utc) - dt
+    seconds = delta.total_seconds()
+
+    if seconds < 60:
+        return "just now"
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    hours = int(seconds // 3600)
+    if hours < 24:
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    days = int(seconds // 86400)
+    if days < 7:
+        return f"{days} day{'s' if days != 1 else ''} ago"
+    return f"on {dt.strftime('%b')} {dt.day}, {dt.year}"
 
 
 @app.route("/")
@@ -294,6 +320,28 @@ def new_book():
         return render_template("new_book.html", form_name=request.form.get("name", ""))
 
     return render_template("new_book.html", form_name="")
+
+
+@app.route("/books/<int:book_id>/rename", methods=["GET", "POST"])
+@login_required
+def rename_book(book_id):
+    book = db.get_book(book_id, current_user.id)
+    if book is None:
+        flash("Book not found.")
+        return redirect(url_for("books"))
+
+    if request.method == "POST":
+        try:
+            name = validation.validate_book_name(request.form.get("name"))
+            db.update_book_name(book_id, current_user.id, name)
+            return redirect(url_for("books"))
+        except sqlite3.IntegrityError:
+            flash("A book with that name already exists.")
+        except ValueError as e:
+            flash(str(e))
+        return render_template("rename_book.html", book=book, form_name=request.form.get("name", ""))
+
+    return render_template("rename_book.html", book=book, form_name=book["name"])
 
 
 @app.route("/books/<int:book_id>/delete", methods=["GET", "POST"])

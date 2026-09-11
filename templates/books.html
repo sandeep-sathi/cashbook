@@ -6,7 +6,21 @@
     {% if books %}
         <ul class="book-list">
             {% for b in books %}
-                <li><a href="{{ url_for('ledger', book_id=b['id']) }}"><span>{{ b['name'] }}</span><span class="chevron">&rsaquo;</span></a></li>
+                <li>
+                    <div class="book-row">
+                        <a class="book-link" href="{{ url_for('ledger', book_id=b['id']) }}">
+                            <span class="book-name">{{ b['name'] }}</span>
+                            <span class="book-updated">Updated {{ b['updated_at']|timeago }}</span>
+                        </a>
+                        <details class="book-menu">
+                            <summary aria-label="Book options">&#8942;</summary>
+                            <div class="book-menu-panel">
+                                <a href="{{ url_for('rename_book', book_id=b['id']) }}">Rename</a>
+                                <a class="danger" href="{{ url_for('delete_book', book_id=b['id']) }}">Delete</a>
+                            </div>
+                        </details>
+                    </div>
+                </li>
             {% endfor %}
         </ul>
     {% else %}

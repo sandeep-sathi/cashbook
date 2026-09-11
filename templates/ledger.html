@@ -74,10 +74,6 @@
         <p class="empty">No transactions match.</p>
     {% endif %}
 
-    <div class="danger-zone">
-        <a class="danger-link" href="{{ url_for('delete_book', book_id=book['id']) }}">Delete this book</a>
-    </div>
-
     <div class="bottom-bar">
         <a class="bottom-btn cash-in" href="{{ url_for('new_transaction', book_id=book['id'], type='in') }}">+ Cash In</a>
         <a class="bottom-btn cash-out" href="{{ url_for('new_transaction', book_id=book['id'], type='out') }}">&minus; Cash Out</a>

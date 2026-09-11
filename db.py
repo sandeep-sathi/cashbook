@@ -130,7 +130,7 @@ def update_user_email(user_id, email):
 
 def list_books(owner_id):
     return get_db().execute(
-        "SELECT * FROM books WHERE owner_id = ? ORDER BY name COLLATE NOCASE",
+        "SELECT * FROM books WHERE owner_id = ? ORDER BY updated_at DESC",
         (owner_id,),
     ).fetchall()
 
@@ -138,7 +138,8 @@ def list_books(owner_id):
 def create_book(owner_id, name):
     db = get_db()
     cur = db.execute(
-        "INSERT INTO books (owner_id, name) VALUES (?, ?)", (owner_id, name)
+        "INSERT INTO books (owner_id, name, updated_at) VALUES (?, ?, datetime('now'))",
+        (owner_id, name),
     )
     db.commit()
     return cur.lastrowid
@@ -148,6 +149,20 @@ def get_book(book_id, owner_id):
     return get_db().execute(
         "SELECT * FROM books WHERE id = ? AND owner_id = ?", (book_id, owner_id)
     ).fetchone()
+
+
+def update_book_name(book_id, owner_id, name):
+    db = get_db()
+    db.execute(
+        "UPDATE books SET name = ?, updated_at = datetime('now') WHERE id = ? AND owner_id = ?",
+        (name, book_id, owner_id),
+    )
+    db.commit()
+
+
+def touch_book(book_id):
+    db = get_db()
+    db.execute("UPDATE books SET updated_at = datetime('now') WHERE id = ?", (book_id,))
 
 
 def delete_book(book_id, owner_id):
@@ -222,6 +237,7 @@ def create_transaction(book_id, date, type_, amount_cents, category_id, descript
            VALUES (?, ?, ?, ?, ?, ?)""",
         (book_id, date, type_, amount_cents, category_id, description),
     )
+    touch_book(book_id)
     db.commit()
 
 
@@ -240,6 +256,7 @@ def update_transaction(book_id, txn_id, date, type_, amount_cents, category_id, 
            WHERE id = ? AND book_id = ?""",
         (date, type_, amount_cents, category_id, description, txn_id, book_id),
     )
+    touch_book(book_id)
     db.commit()
 
 
@@ -249,4 +266,5 @@ def delete_transaction(book_id, txn_id):
         "DELETE FROM transactions WHERE id = ? AND book_id = ?",
         (txn_id, book_id),
     )
+    touch_book(book_id)
     db.commit()
