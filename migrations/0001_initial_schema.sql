@@ -1,4 +1,4 @@
-PRAGMA foreign_keys = ON;
+BEGIN;
 
 CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,3 +38,5 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 CREATE INDEX IF NOT EXISTS idx_transactions_business_date
     ON transactions(business_id, date, id);
+
+COMMIT;

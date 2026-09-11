@@ -1,11 +1,16 @@
+import re
 import sqlite3
+import sys
 from pathlib import Path
 
 from flask import g
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE = BASE_DIR / "cashbook.db"
-SCHEMA = BASE_DIR / "schema.sql"
+MIGRATIONS_DIR = BASE_DIR / "migrations"
+
+# Filenames must look like 0001_description.sql — at least 4 digits, zero-padded.
+MIGRATION_RE = re.compile(r"^(\d{4,})_[\w]+\.sql$")
 
 
 def get_db():
@@ -22,10 +27,61 @@ def close_db(e=None):
         db.close()
 
 
+def _discover_migrations():
+    migrations = []
+    seen = set()
+    for path in MIGRATIONS_DIR.glob("*.sql"):
+        m = MIGRATION_RE.match(path.name)
+        if not m:
+            raise RuntimeError(
+                f"Migration file {path.name!r} does not match NNNN_description.sql "
+                "— refusing to guess its order."
+            )
+        version = int(m.group(1))
+        if version in seen:
+            raise RuntimeError(f"Duplicate migration version {version} ({path.name!r}).")
+        seen.add(version)
+        migrations.append((version, path))
+    migrations.sort(key=lambda pair: pair[0])
+    return migrations
+
+
 def init_db():
+    """Apply any migration files newer than the database's current user_version.
+
+    Runs once at process startup on its own short-lived connection, separate
+    from the per-request connections used by get_db(). Safe to call on every
+    startup — an up-to-date database is a cheap no-op.
+    """
     db = sqlite3.connect(DATABASE)
-    db.executescript(SCHEMA.read_text())
-    db.close()
+    try:
+        current = db.execute("PRAGMA user_version").fetchone()[0]
+        pending = [(v, p) for v, p in _discover_migrations() if v > current]
+
+        if not pending:
+            print(f"[db] Database is up to date at version {current}.")
+            return
+
+        applied = []
+        for version, path in pending:
+            try:
+                db.executescript(path.read_text())
+            except Exception:
+                db.rollback()
+                print(
+                    f"[db] FAILED applying migration {path.name} — database left at "
+                    f"version {current} (this migration's changes were rolled back). "
+                    "Aborting startup.",
+                    file=sys.stderr,
+                )
+                raise
+            db.execute(f"PRAGMA user_version = {int(version)}")
+            current = version
+            applied.append(f"{version:04d}")
+
+        print(f"[db] Applied migrations: {', '.join(applied)}. Now at version {current}.")
+    finally:
+        db.close()
 
 
 # --- users -------------------------------------------------------

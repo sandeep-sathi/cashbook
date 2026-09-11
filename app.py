@@ -2,6 +2,7 @@ import csv
 import io
 import os
 import sqlite3
+import sys
 from datetime import date
 from urllib.parse import urlparse
 
@@ -21,8 +22,24 @@ import db
 import validation
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-app.config["INVITE_CODE"] = os.environ.get("CASHBOOK_INVITE_CODE", "change-me")
+
+_secret_key = os.environ.get("SECRET_KEY")
+_invite_code = os.environ.get("CASHBOOK_INVITE_CODE")
+if not _secret_key or not _invite_code:
+    print(
+        "[app] WARNING: SECRET_KEY and/or CASHBOOK_INVITE_CODE are not set via "
+        "environment variables — falling back to insecure development defaults. "
+        "Set both before deploying anywhere real users can reach this app.",
+        file=sys.stderr,
+    )
+app.secret_key = _secret_key or "dev-secret-change-me"
+app.config["INVITE_CODE"] = _invite_code or "change-me"
+
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = (
+    os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+)
 
 app.teardown_appcontext(db.close_db)
 
