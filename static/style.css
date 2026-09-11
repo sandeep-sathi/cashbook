@@ -102,8 +102,8 @@ h2 { font-size: 1.05rem; }
     margin-bottom: 0.4rem;
 }
 
-/* business list */
-.business-list {
+/* book list */
+.book-list {
     list-style: none;
     padding: 0;
     margin: 0 0 1.5rem;
@@ -112,8 +112,8 @@ h2 { font-size: 1.05rem; }
     overflow: hidden;
     border: 1px solid var(--border);
 }
-.business-list li + li { border-top: 1px solid var(--border); }
-.business-list a {
+.book-list li + li { border-top: 1px solid var(--border); }
+.book-list a {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -123,7 +123,7 @@ h2 { font-size: 1.05rem; }
     font-size: 1rem;
     min-height: 44px;
 }
-.business-list .chevron { color: var(--muted); font-size: 1.3rem; }
+.book-list .chevron { color: var(--muted); font-size: 1.3rem; }
 
 .fab {
     position: fixed;
@@ -221,6 +221,31 @@ form > button[type="submit"] { display: block; width: 100%; }
     font-size: 0.9rem;
     font-weight: 600;
 }
+
+.button-danger { background: var(--red); }
+.button-danger:hover { background: var(--red-dark); }
+
+.danger-warning {
+    padding: 0.65rem 1rem;
+    margin: 0 0 1rem;
+    background: var(--red-tint);
+    border: 1px solid #f3c6c6;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.danger-zone {
+    text-align: center;
+    margin: 1.5rem 0 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+.danger-link {
+    color: var(--red);
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+.danger-link:hover { text-decoration: underline; }
 
 /* summary bar */
 .summary-bar {

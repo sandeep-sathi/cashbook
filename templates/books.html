@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Books - Cashbook{% endblock %}
+{% block content %}
+    <h1>Your Books</h1>
+
+    {% if books %}
+        <ul class="book-list">
+            {% for b in books %}
+                <li><a href="{{ url_for('ledger', book_id=b['id']) }}"><span>{{ b['name'] }}</span><span class="chevron">&rsaquo;</span></a></li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="empty">No books yet. Tap + to add one.</p>
+    {% endif %}
+
+    <a class="fab" href="{{ url_for('new_book') }}" aria-label="Add a book">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+    </a>
+{% endblock %}

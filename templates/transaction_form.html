@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Edit' if action == 'edit' else 'Add' }} transaction - {{ business['name'] }}{% endblock %}
+{% block title %}{{ 'Edit' if action == 'edit' else 'Add' }} transaction - {{ book['name'] }}{% endblock %}
 {% block content %}
-    <a class="back-link" href="{{ url_for('ledger', business_id=business['id']) }}">&larr; {{ business['name'] }}</a>
+    <a class="back-link" href="{{ url_for('ledger', book_id=book['id']) }}">&larr; {{ book['name'] }}</a>
     <h1>{{ 'Edit transaction' if action == 'edit' else ('Add Cash In' if txn.type == 'in' else 'Add Cash Out') }}</h1>
 
-    <form method="post" action="{{ url_for('edit_transaction', business_id=business['id'], txn_id=txn_id) if action == 'edit' else url_for('new_transaction', business_id=business['id']) }}">
+    <form method="post" action="{{ url_for('edit_transaction', book_id=book['id'], txn_id=txn_id) if action == 'edit' else url_for('new_transaction', book_id=book['id']) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <fieldset>
@@ -28,7 +28,7 @@
             Category
             <input type="text" name="category" value="{{ txn.category or '' }}" list="category-list" maxlength="50" placeholder="Optional">
             <datalist id="category-list">
-                {% for c in business_categories %}<option value="{{ c['name'] }}">{% endfor %}
+                {% for c in book_categories %}<option value="{{ c['name'] }}">{% endfor %}
             </datalist>
         </label>
 

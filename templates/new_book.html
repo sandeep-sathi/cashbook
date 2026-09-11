@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Add book - Cashbook{% endblock %}
+{% block content %}
+    <a class="back-link" href="{{ url_for('books') }}">&larr; Books</a>
+    <h1>Add a book</h1>
+
+    <form method="post" action="{{ url_for('new_book') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>
+            Name
+            <input type="text" name="name" value="{{ form_name }}" required autofocus maxlength="100" placeholder="e.g. My Shop">
+        </label>
+        <button type="submit">Create book</button>
+    </form>
+{% endblock %}

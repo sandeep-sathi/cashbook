@@ -126,52 +126,58 @@ def update_user_email(user_id, email):
     db.commit()
 
 
-# --- businesses -------------------------------------------------------
+# --- books -------------------------------------------------------
 
-def list_businesses(owner_id):
+def list_books(owner_id):
     return get_db().execute(
-        "SELECT * FROM businesses WHERE owner_id = ? ORDER BY name COLLATE NOCASE",
+        "SELECT * FROM books WHERE owner_id = ? ORDER BY name COLLATE NOCASE",
         (owner_id,),
     ).fetchall()
 
 
-def create_business(owner_id, name):
+def create_book(owner_id, name):
     db = get_db()
     cur = db.execute(
-        "INSERT INTO businesses (owner_id, name) VALUES (?, ?)", (owner_id, name)
+        "INSERT INTO books (owner_id, name) VALUES (?, ?)", (owner_id, name)
     )
     db.commit()
     return cur.lastrowid
 
 
-def get_business(business_id, owner_id):
+def get_book(book_id, owner_id):
     return get_db().execute(
-        "SELECT * FROM businesses WHERE id = ? AND owner_id = ?", (business_id, owner_id)
+        "SELECT * FROM books WHERE id = ? AND owner_id = ?", (book_id, owner_id)
     ).fetchone()
+
+
+def delete_book(book_id, owner_id):
+    db = get_db()
+    db.execute("DELETE FROM books WHERE id = ? AND owner_id = ?", (book_id, owner_id))
+    db.commit()
 
 
 # --- categories ---------------------------------------------------------
 
-def list_categories(business_id):
+def list_categories(book_id):
     return get_db().execute(
-        "SELECT * FROM categories WHERE business_id = ? ORDER BY name COLLATE NOCASE",
-        (business_id,),
+        "SELECT * FROM categories WHERE book_id = ? ORDER BY name COLLATE NOCASE",
+        (book_id,),
     ).fetchall()
 
 
-def get_or_create_category(business_id, name):
+def get_or_create_category(book_id, name):
     if not name:
         return None
     db = get_db()
     row = db.execute(
-        "SELECT id FROM categories WHERE business_id = ? AND name = ? COLLATE NOCASE",
-        (business_id, name),
+        "SELECT id FROM categories WHERE book_id = ? AND name = ? COLLATE NOCASE",
+        (book_id, name),
     ).fetchone()
     if row:
         return row["id"]
     cur = db.execute(
-        "INSERT INTO categories (business_id, name) VALUES (?, ?)",
-        (business_id, name),
+        "INSERT INTO categories (book_id, name) VALUES (?, ?)",
+        (book_id, name),
     )
     db.commit()
     return cur.lastrowid
@@ -179,7 +185,7 @@ def get_or_create_category(business_id, name):
 
 # --- transactions ---------------------------------------------------------
 
-def list_transactions(business_id, date_from=None, date_to=None, category_id=None, q=None):
+def list_transactions(book_id, date_from=None, date_to=None, category_id=None, q=None):
     sql = """
         WITH running AS (
           SELECT t.id, t.date, t.type, t.amount_cents, t.description,
@@ -188,7 +194,7 @@ def list_transactions(business_id, date_from=None, date_to=None, category_id=Non
                      OVER (ORDER BY t.date, t.id) AS running_balance_cents
           FROM transactions t
           LEFT JOIN categories c ON c.id = t.category_id
-          WHERE t.business_id = :business_id
+          WHERE t.book_id = :book_id
         )
         SELECT * FROM running
         WHERE (:date_from IS NULL OR date >= :date_from)
@@ -200,7 +206,7 @@ def list_transactions(business_id, date_from=None, date_to=None, category_id=Non
     return get_db().execute(
         sql,
         {
-            "business_id": business_id,
+            "book_id": book_id,
             "date_from": date_from,
             "date_to": date_to,
             "category_id": category_id,
@@ -209,38 +215,38 @@ def list_transactions(business_id, date_from=None, date_to=None, category_id=Non
     ).fetchall()
 
 
-def create_transaction(business_id, date, type_, amount_cents, category_id, description):
+def create_transaction(book_id, date, type_, amount_cents, category_id, description):
     db = get_db()
     db.execute(
-        """INSERT INTO transactions (business_id, date, type, amount_cents, category_id, description)
+        """INSERT INTO transactions (book_id, date, type, amount_cents, category_id, description)
            VALUES (?, ?, ?, ?, ?, ?)""",
-        (business_id, date, type_, amount_cents, category_id, description),
+        (book_id, date, type_, amount_cents, category_id, description),
     )
     db.commit()
 
 
-def get_transaction(business_id, txn_id):
+def get_transaction(book_id, txn_id):
     return get_db().execute(
-        "SELECT * FROM transactions WHERE id = ? AND business_id = ?",
-        (txn_id, business_id),
+        "SELECT * FROM transactions WHERE id = ? AND book_id = ?",
+        (txn_id, book_id),
     ).fetchone()
 
 
-def update_transaction(business_id, txn_id, date, type_, amount_cents, category_id, description):
+def update_transaction(book_id, txn_id, date, type_, amount_cents, category_id, description):
     db = get_db()
     db.execute(
         """UPDATE transactions
            SET date = ?, type = ?, amount_cents = ?, category_id = ?, description = ?
-           WHERE id = ? AND business_id = ?""",
-        (date, type_, amount_cents, category_id, description, txn_id, business_id),
+           WHERE id = ? AND book_id = ?""",
+        (date, type_, amount_cents, category_id, description, txn_id, book_id),
     )
     db.commit()
 
 
-def delete_transaction(business_id, txn_id):
+def delete_transaction(book_id, txn_id):
     db = get_db()
     db.execute(
-        "DELETE FROM transactions WHERE id = ? AND business_id = ?",
-        (txn_id, business_id),
+        "DELETE FROM transactions WHERE id = ? AND book_id = ?",
+        (txn_id, book_id),
     )
     db.commit()

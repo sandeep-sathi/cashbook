@@ -140,13 +140,13 @@ def money_filter(cents):
 
 @app.route("/")
 def index():
-    return redirect(url_for("businesses"))
+    return redirect(url_for("books"))
 
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if current_user.is_authenticated:
-        return redirect(url_for("businesses"))
+        return redirect(url_for("books"))
 
     if request.method == "POST":
         try:
@@ -161,7 +161,7 @@ def signup():
             password_hash = generate_password_hash(password)
             user_id = db.create_user(username, email, password_hash)
             login_user(AuthUser(db.get_user(user_id)))
-            return redirect(url_for("businesses"))
+            return redirect(url_for("books"))
         except sqlite3.IntegrityError as e:
             if "username" in str(e):
                 flash("That username is already taken.")
@@ -184,7 +184,7 @@ def signup():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("businesses"))
+        return redirect(url_for("books"))
 
     if request.method == "POST":
         username = request.form.get("username", "")
@@ -192,7 +192,7 @@ def login():
         user_row = db.get_user_by_username(username)
         if user_row and check_password_hash(user_row["password_hash"], password):
             login_user(AuthUser(user_row), remember=bool(request.form.get("remember")))
-            return redirect(_safe_next_url(request.args.get("next")) or url_for("businesses"))
+            return redirect(_safe_next_url(request.args.get("next")) or url_for("books"))
         flash("Invalid username or password.")
         return render_template("login.html", form_username=username)
 
@@ -209,7 +209,7 @@ def logout():
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
     if current_user.is_authenticated:
-        return redirect(url_for("businesses"))
+        return redirect(url_for("books"))
 
     if request.method == "POST":
         email = (request.form.get("email") or "").strip()
@@ -273,27 +273,47 @@ def account():
     return render_template("account.html", email=user_row["email"] or "")
 
 
-@app.route("/businesses", methods=["GET", "POST"])
+@app.route("/books")
 @login_required
-def businesses():
+def books():
+    return render_template("books.html", books=db.list_books(current_user.id))
+
+
+@app.route("/books/new", methods=["GET", "POST"])
+@login_required
+def new_book():
     if request.method == "POST":
         try:
-            name = validation.validate_business_name(request.form.get("name"))
-            business_id = db.create_business(current_user.id, name)
-            return redirect(url_for("ledger", business_id=business_id))
+            name = validation.validate_book_name(request.form.get("name"))
+            book_id = db.create_book(current_user.id, name)
+            return redirect(url_for("ledger", book_id=book_id))
         except sqlite3.IntegrityError:
-            flash("A business with that name already exists.")
+            flash("A book with that name already exists.")
         except ValueError as e:
             flash(str(e))
-        return render_template(
-            "businesses.html",
-            businesses=db.list_businesses(current_user.id),
-            form_name=request.form.get("name", ""),
-        )
+        return render_template("new_book.html", form_name=request.form.get("name", ""))
 
-    return render_template(
-        "businesses.html", businesses=db.list_businesses(current_user.id), form_name=""
-    )
+    return render_template("new_book.html", form_name="")
+
+
+@app.route("/books/<int:book_id>/delete", methods=["GET", "POST"])
+@login_required
+def delete_book(book_id):
+    book = db.get_book(book_id, current_user.id)
+    if book is None:
+        flash("Book not found.")
+        return redirect(url_for("books"))
+
+    if request.method == "POST":
+        confirm_name = request.form.get("confirm_name", "")
+        if confirm_name != book["name"]:
+            flash("The name you typed doesn't match. Book was not deleted.")
+            return render_template("delete_book.html", book=book)
+        db.delete_book(book_id, current_user.id)
+        flash(f'"{book["name"]}" has been deleted.')
+        return redirect(url_for("books"))
+
+    return render_template("delete_book.html", book=book)
 
 
 def _filter_args():
@@ -305,16 +325,16 @@ def _filter_args():
     }
 
 
-@app.route("/businesses/<int:business_id>/ledger")
+@app.route("/books/<int:book_id>/ledger")
 @login_required
-def ledger(business_id):
-    business = db.get_business(business_id, current_user.id)
-    if business is None:
-        flash("Business not found.")
-        return redirect(url_for("businesses"))
+def ledger(book_id):
+    book = db.get_book(book_id, current_user.id)
+    if book is None:
+        flash("Book not found.")
+        return redirect(url_for("books"))
 
     filters = _filter_args()
-    rows = db.list_transactions(business_id, **filters)
+    rows = db.list_transactions(book_id, **filters)
 
     total_in = sum(r["amount_cents"] for r in rows if r["type"] == "in")
     total_out = sum(r["amount_cents"] for r in rows if r["type"] == "out")
@@ -329,9 +349,9 @@ def ledger(business_id):
 
     return render_template(
         "ledger.html",
-        business=business,
+        book=book,
         grouped=grouped,
-        categories=db.list_categories(business_id),
+        categories=db.list_categories(book_id),
         filters=filters,
         query_args=query_args,
         total_in=total_in,
@@ -340,13 +360,13 @@ def ledger(business_id):
     )
 
 
-@app.route("/businesses/<int:business_id>/transactions/new", methods=["GET", "POST"])
+@app.route("/books/<int:book_id>/transactions/new", methods=["GET", "POST"])
 @login_required
-def new_transaction(business_id):
-    business = db.get_business(business_id, current_user.id)
-    if business is None:
-        flash("Business not found.")
-        return redirect(url_for("businesses"))
+def new_transaction(book_id):
+    book = db.get_book(book_id, current_user.id)
+    if book is None:
+        flash("Book not found.")
+        return redirect(url_for("books"))
 
     if request.method == "POST":
         try:
@@ -355,19 +375,19 @@ def new_transaction(business_id):
             amount_cents = validation.parse_amount(request.form.get("amount"))
             category_name = validation.clean_category_name(request.form.get("category"))
             description = validation.clean_description(request.form.get("description"))
-            category_id = db.get_or_create_category(business_id, category_name)
+            category_id = db.get_or_create_category(book_id, category_name)
             db.create_transaction(
-                business_id, txn_date, txn_type, amount_cents, category_id, description
+                book_id, txn_date, txn_type, amount_cents, category_id, description
             )
-            return redirect(url_for("ledger", business_id=business_id))
+            return redirect(url_for("ledger", book_id=book_id))
         except ValueError as e:
             flash(str(e))
             return render_template(
                 "transaction_form.html",
-                business=business,
+                book=book,
                 action="new",
                 txn=request.form,
-                business_categories=db.list_categories(business_id),
+                book_categories=db.list_categories(book_id),
             )
 
     default_type = request.args.get("type")
@@ -376,25 +396,25 @@ def new_transaction(business_id):
 
     return render_template(
         "transaction_form.html",
-        business=business,
+        book=book,
         action="new",
         txn={"date": date.today().isoformat(), "type": default_type},
-        business_categories=db.list_categories(business_id),
+        book_categories=db.list_categories(book_id),
     )
 
 
-@app.route("/businesses/<int:business_id>/transactions/<int:txn_id>/edit", methods=["GET", "POST"])
+@app.route("/books/<int:book_id>/transactions/<int:txn_id>/edit", methods=["GET", "POST"])
 @login_required
-def edit_transaction(business_id, txn_id):
-    business = db.get_business(business_id, current_user.id)
-    if business is None:
-        flash("Business not found.")
-        return redirect(url_for("businesses"))
+def edit_transaction(book_id, txn_id):
+    book = db.get_book(book_id, current_user.id)
+    if book is None:
+        flash("Book not found.")
+        return redirect(url_for("books"))
 
-    txn = db.get_transaction(business_id, txn_id)
+    txn = db.get_transaction(book_id, txn_id)
     if txn is None:
         flash("Transaction not found.")
-        return redirect(url_for("ledger", business_id=business_id))
+        return redirect(url_for("ledger", book_id=book_id))
 
     if request.method == "POST":
         try:
@@ -403,26 +423,26 @@ def edit_transaction(business_id, txn_id):
             amount_cents = validation.parse_amount(request.form.get("amount"))
             category_name = validation.clean_category_name(request.form.get("category"))
             description = validation.clean_description(request.form.get("description"))
-            category_id = db.get_or_create_category(business_id, category_name)
+            category_id = db.get_or_create_category(book_id, category_name)
             db.update_transaction(
-                business_id, txn_id, txn_date, txn_type, amount_cents, category_id, description
+                book_id, txn_id, txn_date, txn_type, amount_cents, category_id, description
             )
-            return redirect(url_for("ledger", business_id=business_id))
+            return redirect(url_for("ledger", book_id=book_id))
         except ValueError as e:
             flash(str(e))
             return render_template(
                 "transaction_form.html",
-                business=business,
+                book=book,
                 action="edit",
                 txn=request.form,
                 txn_id=txn_id,
-                business_categories=db.list_categories(business_id),
+                book_categories=db.list_categories(book_id),
             )
 
     category_row = None
     if txn["category_id"]:
         category_row = next(
-            (c for c in db.list_categories(business_id) if c["id"] == txn["category_id"]), None
+            (c for c in db.list_categories(book_id) if c["id"] == txn["category_id"]), None
         )
     form_values = {
         "date": txn["date"],
@@ -433,36 +453,36 @@ def edit_transaction(business_id, txn_id):
     }
     return render_template(
         "transaction_form.html",
-        business=business,
+        book=book,
         action="edit",
         txn=form_values,
         txn_id=txn_id,
-        business_categories=db.list_categories(business_id),
+        book_categories=db.list_categories(book_id),
     )
 
 
-@app.route("/businesses/<int:business_id>/transactions/<int:txn_id>/delete", methods=["POST"])
+@app.route("/books/<int:book_id>/transactions/<int:txn_id>/delete", methods=["POST"])
 @login_required
-def delete_transaction(business_id, txn_id):
-    business = db.get_business(business_id, current_user.id)
-    if business is None:
-        flash("Business not found.")
-        return redirect(url_for("businesses"))
+def delete_transaction(book_id, txn_id):
+    book = db.get_book(book_id, current_user.id)
+    if book is None:
+        flash("Book not found.")
+        return redirect(url_for("books"))
 
-    db.delete_transaction(business_id, txn_id)
-    return redirect(url_for("ledger", business_id=business_id))
+    db.delete_transaction(book_id, txn_id)
+    return redirect(url_for("ledger", book_id=book_id))
 
 
-@app.route("/businesses/<int:business_id>/export.csv")
+@app.route("/books/<int:book_id>/export.csv")
 @login_required
-def export_csv(business_id):
-    business = db.get_business(business_id, current_user.id)
-    if business is None:
-        flash("Business not found.")
-        return redirect(url_for("businesses"))
+def export_csv(book_id):
+    book = db.get_book(book_id, current_user.id)
+    if book is None:
+        flash("Book not found.")
+        return redirect(url_for("books"))
 
     filters = _filter_args()
-    rows = db.list_transactions(business_id, **filters)
+    rows = db.list_transactions(book_id, **filters)
 
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -479,7 +499,7 @@ def export_csv(business_id):
             ]
         )
 
-    safe_name = "".join(c for c in business["name"] if c.isalnum() or c in " -_").strip() or "business"
+    safe_name = "".join(c for c in book["name"] if c.isalnum() or c in " -_").strip() or "book"
     filename = f"{safe_name}_{date.today().isoformat()}.csv"
     return Response(
         buf.getvalue(),

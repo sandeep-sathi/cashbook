@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ book['name'] }} - Cashbook{% endblock %}
+{% block content %}
+    <a class="back-link" href="{{ url_for('ledger', book_id=book['id']) }}">&larr; {{ book['name'] }}</a>
+    <h1>Delete book</h1>
+
+    <p class="danger-warning">This will permanently delete <strong>{{ book['name'] }}</strong> and all of its transactions and categories. This cannot be undone.</p>
+
+    <form method="post" action="{{ url_for('delete_book', book_id=book['id']) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>
+            Type <strong>{{ book['name'] }}</strong> to confirm
+            <input type="text" name="confirm_name" required autocomplete="off" autofocus>
+        </label>
+        <button type="submit" class="button-danger">Delete this book permanently</button>
+    </form>
+{% endblock %}

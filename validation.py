@@ -68,12 +68,12 @@ def validate_email(s):
     return s
 
 
-def validate_business_name(s):
+def validate_book_name(s):
     if not s or not s.strip():
-        raise ValueError("Business name is required.")
+        raise ValueError("Book name is required.")
     s = s.strip()
     if len(s) > 100:
-        raise ValueError("Business name must be 100 characters or fewer.")
+        raise ValueError("Book name must be 100 characters or fewer.")
     return s
 
 

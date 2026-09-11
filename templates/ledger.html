@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ business['name'] }} - Cashbook{% endblock %}
+{% block title %}{{ book['name'] }} - Cashbook{% endblock %}
 {% block bodyclass %}has-bottom-bar{% endblock %}
 {% block content %}
-    <a class="back-link" href="{{ url_for('businesses') }}">&larr; Businesses</a>
-    <h1>{{ business['name'] }}</h1>
+    <a class="back-link" href="{{ url_for('books') }}">&larr; Books</a>
+    <h1>{{ book['name'] }}</h1>
 
     <div class="summary-bar">
         <div class="summary-stat in">
@@ -22,7 +22,7 @@
 
     <details class="filters-panel">
         <summary>Filter &amp; search</summary>
-        <form method="get" class="filters" action="{{ url_for('ledger', business_id=business['id']) }}">
+        <form method="get" class="filters" action="{{ url_for('ledger', book_id=book['id']) }}">
             <label>From <input type="date" name="date_from" value="{{ filters.date_from or '' }}"></label>
             <label>To <input type="date" name="date_to" value="{{ filters.date_to or '' }}"></label>
             <label>
@@ -37,13 +37,13 @@
             <label>Search <input type="text" name="q" value="{{ filters.q or '' }}" placeholder="description"></label>
             <div class="filters-actions">
                 <button type="submit">Apply</button>
-                <a href="{{ url_for('ledger', business_id=business['id']) }}">Clear</a>
+                <a href="{{ url_for('ledger', book_id=book['id']) }}">Clear</a>
             </div>
         </form>
     </details>
 
     <div class="ledger-toolbar">
-        <a class="text-link" href="{{ url_for('export_csv', business_id=business['id'], **query_args) }}">Export CSV</a>
+        <a class="text-link" href="{{ url_for('export_csv', book_id=book['id'], **query_args) }}">Export CSV</a>
     </div>
 
     {% if grouped %}
@@ -52,7 +52,7 @@
                 <div class="date-group-header">{{ group.date }}</div>
                 {% for t in group.rows %}
                     <div class="txn-row">
-                        <a class="txn-main" href="{{ url_for('edit_transaction', business_id=business['id'], txn_id=t['id']) }}">
+                        <a class="txn-main" href="{{ url_for('edit_transaction', book_id=book['id'], txn_id=t['id']) }}">
                             <div class="txn-info">
                                 <span class="txn-desc">{{ t['description'] or t['category_name'] or 'No description' }}</span>
                                 {% if t['category_name'] %}<span class="txn-category">{{ t['category_name'] }}</span>{% endif %}
@@ -62,7 +62,7 @@
                                 <span class="txn-balance">Bal {{ t['running_balance_cents']|money }}</span>
                             </div>
                         </a>
-                        <form method="post" class="txn-delete" action="{{ url_for('delete_transaction', business_id=business['id'], txn_id=t['id']) }}" onsubmit="return confirm('Delete this transaction?');">
+                        <form method="post" class="txn-delete" action="{{ url_for('delete_transaction', book_id=book['id'], txn_id=t['id']) }}" onsubmit="return confirm('Delete this transaction?');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" aria-label="Delete transaction">&times;</button>
                         </form>
@@ -74,8 +74,12 @@
         <p class="empty">No transactions match.</p>
     {% endif %}
 
+    <div class="danger-zone">
+        <a class="danger-link" href="{{ url_for('delete_book', book_id=book['id']) }}">Delete this book</a>
+    </div>
+
     <div class="bottom-bar">
-        <a class="bottom-btn cash-in" href="{{ url_for('new_transaction', business_id=business['id'], type='in') }}">+ Cash In</a>
-        <a class="bottom-btn cash-out" href="{{ url_for('new_transaction', business_id=business['id'], type='out') }}">&minus; Cash Out</a>
+        <a class="bottom-btn cash-in" href="{{ url_for('new_transaction', book_id=book['id'], type='in') }}">+ Cash In</a>
+        <a class="bottom-btn cash-out" href="{{ url_for('new_transaction', book_id=book['id'], type='out') }}">&minus; Cash Out</a>
     </div>
 {% endblock %}
