@@ -15,6 +15,7 @@
 
     <h2>Add a business</h2>
     <form method="post" action="{{ url_for('businesses') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>
             Name
             <input type="text" name="name" value="{{ form_name }}" required maxlength="100">

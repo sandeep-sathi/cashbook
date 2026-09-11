@@ -8,6 +8,9 @@ body {
 header {
     background: #1f2933;
     padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 header .brand {
     color: #fff;
@@ -15,6 +18,27 @@ header .brand {
     text-decoration: none;
     font-size: 1.1rem;
 }
+.account-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: #cbd2d9;
+    font-size: 0.9rem;
+}
+.account-nav a { color: #fff; text-decoration: none; }
+.account-nav form { margin: 0; }
+.link-button {
+    background: none;
+    border: none;
+    color: #fff;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0;
+    margin: 0;
+}
+.checkbox-label { display: flex; align-items: center; gap: 0.4rem; }
+.checkbox-label input { width: auto; display: inline; }
 main {
     max-width: 900px;
     margin: 1.5rem auto;

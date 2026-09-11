@@ -1,17 +1,53 @@
 import csv
 import io
+import os
 import sqlite3
 from datetime import date
+from urllib.parse import urlparse
 
-from flask import Flask, flash, g, redirect, render_template, request, Response, url_for
+from flask import Flask, flash, redirect, render_template, request, Response, url_for
+from flask_login import (
+    LoginManager,
+    UserMixin,
+    current_user,
+    login_required,
+    login_user,
+    logout_user,
+)
+from flask_wtf import CSRFProtect
+from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
 import validation
 
 app = Flask(__name__)
-app.secret_key = "dev"
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+app.config["INVITE_CODE"] = os.environ.get("CASHBOOK_INVITE_CODE", "change-me")
 
 app.teardown_appcontext(db.close_db)
+
+csrf = CSRFProtect(app)
+
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
+
+
+class AuthUser(UserMixin):
+    def __init__(self, row):
+        self.id = row["id"]
+        self.username = row["username"]
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    row = db.get_user(int(user_id))
+    return AuthUser(row) if row else None
+
+
+def _safe_next_url(next_url):
+    if next_url and next_url.startswith("/") and urlparse(next_url).netloc == "":
+        return next_url
+    return None
 
 
 @app.template_filter("money")
@@ -24,12 +60,65 @@ def index():
     return redirect(url_for("businesses"))
 
 
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if current_user.is_authenticated:
+        return redirect(url_for("businesses"))
+
+    if request.method == "POST":
+        try:
+            username = validation.validate_username(request.form.get("username"))
+            password = validation.validate_password(request.form.get("password"))
+            if password != request.form.get("confirm_password"):
+                raise ValueError("Passwords do not match.")
+            validation.validate_invite_code(
+                request.form.get("invite_code"), app.config["INVITE_CODE"]
+            )
+            password_hash = generate_password_hash(password)
+            user_id = db.create_user(username, password_hash)
+            login_user(AuthUser(db.get_user(user_id)))
+            return redirect(url_for("businesses"))
+        except sqlite3.IntegrityError:
+            flash("That username is already taken.")
+        except ValueError as e:
+            flash(str(e))
+        return render_template("signup.html", form_username=request.form.get("username", ""))
+
+    return render_template("signup.html", form_username="")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("businesses"))
+
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        user_row = db.get_user_by_username(username)
+        if user_row and check_password_hash(user_row["password_hash"], password):
+            login_user(AuthUser(user_row), remember=bool(request.form.get("remember")))
+            return redirect(_safe_next_url(request.args.get("next")) or url_for("businesses"))
+        flash("Invalid username or password.")
+        return render_template("login.html", form_username=username)
+
+    return render_template("login.html", form_username="")
+
+
+@app.route("/logout", methods=["POST"])
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
+
+
 @app.route("/businesses", methods=["GET", "POST"])
+@login_required
 def businesses():
     if request.method == "POST":
         try:
             name = validation.validate_business_name(request.form.get("name"))
-            business_id = db.create_business(name)
+            business_id = db.create_business(current_user.id, name)
             return redirect(url_for("ledger", business_id=business_id))
         except sqlite3.IntegrityError:
             flash("A business with that name already exists.")
@@ -37,11 +126,13 @@ def businesses():
             flash(str(e))
         return render_template(
             "businesses.html",
-            businesses=db.list_businesses(),
+            businesses=db.list_businesses(current_user.id),
             form_name=request.form.get("name", ""),
         )
 
-    return render_template("businesses.html", businesses=db.list_businesses(), form_name="")
+    return render_template(
+        "businesses.html", businesses=db.list_businesses(current_user.id), form_name=""
+    )
 
 
 def _filter_args():
@@ -54,8 +145,9 @@ def _filter_args():
 
 
 @app.route("/businesses/<int:business_id>/ledger")
+@login_required
 def ledger(business_id):
-    business = db.get_business(business_id)
+    business = db.get_business(business_id, current_user.id)
     if business is None:
         flash("Business not found.")
         return redirect(url_for("businesses"))
@@ -82,8 +174,9 @@ def ledger(business_id):
 
 
 @app.route("/businesses/<int:business_id>/transactions/new", methods=["GET", "POST"])
+@login_required
 def new_transaction(business_id):
-    business = db.get_business(business_id)
+    business = db.get_business(business_id, current_user.id)
     if business is None:
         flash("Business not found.")
         return redirect(url_for("businesses"))
@@ -120,8 +213,9 @@ def new_transaction(business_id):
 
 
 @app.route("/businesses/<int:business_id>/transactions/<int:txn_id>/edit", methods=["GET", "POST"])
+@login_required
 def edit_transaction(business_id, txn_id):
-    business = db.get_business(business_id)
+    business = db.get_business(business_id, current_user.id)
     if business is None:
         flash("Business not found.")
         return redirect(url_for("businesses"))
@@ -177,14 +271,21 @@ def edit_transaction(business_id, txn_id):
 
 
 @app.route("/businesses/<int:business_id>/transactions/<int:txn_id>/delete", methods=["POST"])
+@login_required
 def delete_transaction(business_id, txn_id):
+    business = db.get_business(business_id, current_user.id)
+    if business is None:
+        flash("Business not found.")
+        return redirect(url_for("businesses"))
+
     db.delete_transaction(business_id, txn_id)
     return redirect(url_for("ledger", business_id=business_id))
 
 
 @app.route("/businesses/<int:business_id>/export.csv")
+@login_required
 def export_csv(business_id):
-    business = db.get_business(business_id)
+    business = db.get_business(business_id, current_user.id)
     if business is None:
         flash("Business not found.")
         return redirect(url_for("businesses"))

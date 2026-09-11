@@ -8,6 +8,18 @@
 <body>
     <header>
         <a class="brand" href="{{ url_for('businesses') }}">Cashbook</a>
+        <nav class="account-nav">
+            {% if current_user.is_authenticated %}
+                <span>{{ current_user.username }}</span>
+                <form method="post" action="{{ url_for('logout') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="link-button">Log out</button>
+                </form>
+            {% else %}
+                <a href="{{ url_for('login') }}">Log in</a>
+                <a href="{{ url_for('signup') }}">Sign up</a>
+            {% endif %}
+        </nav>
     </header>
     <main>
         {% with messages = get_flashed_messages() %}

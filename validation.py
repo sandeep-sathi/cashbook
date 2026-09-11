@@ -61,3 +61,26 @@ def validate_business_name(s):
     if len(s) > 100:
         raise ValueError("Business name must be 100 characters or fewer.")
     return s
+
+
+def validate_username(s):
+    if not s or not s.strip():
+        raise ValueError("Username is required.")
+    s = s.strip()
+    if len(s) < 3 or len(s) > 50:
+        raise ValueError("Username must be between 3 and 50 characters.")
+    return s
+
+
+def validate_password(s):
+    if not s:
+        raise ValueError("Password is required.")
+    if len(s) < 8:
+        raise ValueError("Password must be at least 8 characters.")
+    return s
+
+
+def validate_invite_code(s, expected):
+    if not s or s.strip() != expected:
+        raise ValueError("Invalid invite code.")
+    return s.strip()

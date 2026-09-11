@@ -28,24 +28,51 @@ def init_db():
     db.close()
 
 
-# --- businesses -------------------------------------------------------
+# --- users -------------------------------------------------------
 
-def list_businesses():
+def get_user(user_id):
     return get_db().execute(
-        "SELECT * FROM businesses ORDER BY name COLLATE NOCASE"
-    ).fetchall()
+        "SELECT * FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
 
 
-def create_business(name):
+def get_user_by_username(username):
+    return get_db().execute(
+        "SELECT * FROM users WHERE username = ? COLLATE NOCASE", (username,)
+    ).fetchone()
+
+
+def create_user(username, password_hash):
     db = get_db()
-    cur = db.execute("INSERT INTO businesses (name) VALUES (?)", (name,))
+    cur = db.execute(
+        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+        (username, password_hash),
+    )
     db.commit()
     return cur.lastrowid
 
 
-def get_business(business_id):
+# --- businesses -------------------------------------------------------
+
+def list_businesses(owner_id):
     return get_db().execute(
-        "SELECT * FROM businesses WHERE id = ?", (business_id,)
+        "SELECT * FROM businesses WHERE owner_id = ? ORDER BY name COLLATE NOCASE",
+        (owner_id,),
+    ).fetchall()
+
+
+def create_business(owner_id, name):
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO businesses (owner_id, name) VALUES (?, ?)", (owner_id, name)
+    )
+    db.commit()
+    return cur.lastrowid
+
+
+def get_business(business_id, owner_id):
+    return get_db().execute(
+        "SELECT * FROM businesses WHERE id = ? AND owner_id = ?", (business_id, owner_id)
     ).fetchone()
 
 

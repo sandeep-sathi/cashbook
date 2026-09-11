@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Log in - Cashbook{% endblock %}
+{% block content %}
+    <h1>Log in</h1>
+
+    <form method="post" action="{{ url_for('login', next=request.args.get('next')) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>
+            Username
+            <input type="text" name="username" value="{{ form_username }}" required autofocus>
+        </label>
+        <label>
+            Password
+            <input type="password" name="password" required>
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" name="remember"> Remember me
+        </label>
+        <button type="submit">Log in</button>
+    </form>
+
+    <p>No account yet? <a href="{{ url_for('signup') }}">Sign up</a></p>
+{% endblock %}
