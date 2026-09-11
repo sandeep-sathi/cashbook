@@ -1,5 +1,8 @@
 import datetime
+import re
 from decimal import Decimal, InvalidOperation
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def parse_date(s):
@@ -51,6 +54,17 @@ def clean_description(s):
         return None
     if len(s) > 500:
         raise ValueError("Description must be 500 characters or fewer.")
+    return s
+
+
+def validate_email(s):
+    if not s or not s.strip():
+        raise ValueError("Email is required.")
+    s = s.strip()
+    if len(s) > 254:
+        raise ValueError("Email is too long.")
+    if not _EMAIL_RE.match(s):
+        raise ValueError("Enter a valid email address.")
     return s
 
 

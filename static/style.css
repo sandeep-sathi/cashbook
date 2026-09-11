@@ -84,6 +84,16 @@ h2 { font-size: 1.05rem; }
 }
 .empty { color: var(--muted); font-style: italic; text-align: center; padding: 2rem 0; }
 
+.notice {
+    padding: 0.65rem 1rem;
+    margin: 0 0 1rem;
+    background: #eaf4fb;
+    border: 1px solid #bfe0f5;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+.notice a { color: var(--green-dark); font-weight: 600; }
+
 .back-link {
     display: inline-block;
     color: var(--muted);

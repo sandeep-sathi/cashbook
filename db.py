@@ -98,14 +98,32 @@ def get_user_by_username(username):
     ).fetchone()
 
 
-def create_user(username, password_hash):
+def get_user_by_email(email):
+    return get_db().execute(
+        "SELECT * FROM users WHERE email = ? COLLATE NOCASE", (email,)
+    ).fetchone()
+
+
+def create_user(username, email, password_hash):
     db = get_db()
     cur = db.execute(
-        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-        (username, password_hash),
+        "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+        (username, email, password_hash),
     )
     db.commit()
     return cur.lastrowid
+
+
+def update_user_password(user_id, password_hash):
+    db = get_db()
+    db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+    db.commit()
+
+
+def update_user_email(user_id, email):
+    db = get_db()
+    db.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id))
+    db.commit()
 
 
 # --- businesses -------------------------------------------------------

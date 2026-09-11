@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Account - Cashbook{% endblock %}
+{% block content %}
+    <h1>Account</h1>
+    <p>Signed in as <strong>{{ current_user.username }}</strong></p>
+
+    <form method="post" action="{{ url_for('account') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>
+            Email
+            <input type="email" name="email" value="{{ email }}" required maxlength="254">
+        </label>
+        <label>
+            Current password
+            <input type="password" name="current_password" required placeholder="Enter your current password to confirm">
+        </label>
+        <button type="submit">Save</button>
+    </form>
+{% endblock %}

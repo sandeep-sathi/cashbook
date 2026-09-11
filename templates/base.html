@@ -11,7 +11,7 @@
         <a class="brand" href="{{ url_for('businesses') }}">Cashbook</a>
         <nav class="account-nav">
             {% if current_user.is_authenticated %}
-                <span>{{ current_user.username }}</span>
+                <a href="{{ url_for('account') }}">{{ current_user.username }}</a>
                 <form method="post" action="{{ url_for('logout') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="link-button">Log out</button>
@@ -30,6 +30,9 @@
                 </ul>
             {% endif %}
         {% endwith %}
+        {% if current_user.is_authenticated and not current_user.email %}
+            <p class="notice">Add an email to your account so you can reset your password if you ever forget it. <a href="{{ url_for('account') }}">Add email</a></p>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 </body>

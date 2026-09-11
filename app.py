@@ -3,6 +3,9 @@ import io
 import os
 import sqlite3
 import sys
+import threading
+import time
+from collections import deque
 from datetime import date
 from urllib.parse import urlparse
 
@@ -16,12 +19,17 @@ from flask_login import (
     logout_user,
 )
 from flask_wtf import CSRFProtect
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
+import mailer
 import validation
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+app.config["PREFERRED_URL_SCHEME"] = "https"
 
 _secret_key = os.environ.get("SECRET_KEY")
 _invite_code = os.environ.get("CASHBOOK_INVITE_CODE")
@@ -53,6 +61,7 @@ class AuthUser(UserMixin):
     def __init__(self, row):
         self.id = row["id"]
         self.username = row["username"]
+        self.email = row["email"]
 
 
 @login_manager.user_loader
@@ -65,6 +74,63 @@ def _safe_next_url(next_url):
     if next_url and next_url.startswith("/") and urlparse(next_url).netloc == "":
         return next_url
     return None
+
+
+# --- password reset tokens -------------------------------------------------
+
+def _reset_serializer():
+    return URLSafeTimedSerializer(app.secret_key, salt="password-reset")
+
+
+def generate_reset_token(user):
+    return _reset_serializer().dumps({"uid": user["id"], "fp": user["password_hash"][-12:]})
+
+
+def verify_reset_token(token, max_age=3600):
+    try:
+        data = _reset_serializer().loads(token, max_age=max_age)
+    except (BadSignature, SignatureExpired):
+        return None
+    user = db.get_user(data.get("uid"))
+    if not user or user["password_hash"][-12:] != data.get("fp"):
+        return None
+    return user
+
+
+# --- forgot-password abuse guard (in-memory; single-process deployment) ---
+
+_send_lock = threading.Lock()
+_last_sent_by_email = {}
+_recent_sends = deque()
+
+COOLDOWN_SECONDS = 60
+MAX_SENDS_PER_HOUR = 50
+
+
+def _should_send(email):
+    now = time.time()
+    with _send_lock:
+        while _recent_sends and now - _recent_sends[0] > 3600:
+            _recent_sends.popleft()
+        if len(_recent_sends) >= MAX_SENDS_PER_HOUR:
+            return False
+        last = _last_sent_by_email.get(email)
+        if last and now - last < COOLDOWN_SECONDS:
+            return False
+        _last_sent_by_email[email] = now
+        _recent_sends.append(now)
+        if len(_last_sent_by_email) > 1000:
+            cutoff = now - COOLDOWN_SECONDS
+            for k in [k for k, v in _last_sent_by_email.items() if v < cutoff]:
+                del _last_sent_by_email[k]
+        return True
+
+
+def _send_reset_email_safe(to_email, reset_url):
+    try:
+        mailer.send_password_reset_email(to_email, reset_url)
+    except Exception as e:
+        print(f"[mailer] Failed to send password reset email: {e}", file=sys.stderr, flush=True)
 
 
 @app.template_filter("money")
@@ -85,6 +151,7 @@ def signup():
     if request.method == "POST":
         try:
             username = validation.validate_username(request.form.get("username"))
+            email = validation.validate_email(request.form.get("email"))
             password = validation.validate_password(request.form.get("password"))
             if password != request.form.get("confirm_password"):
                 raise ValueError("Passwords do not match.")
@@ -92,16 +159,26 @@ def signup():
                 request.form.get("invite_code"), app.config["INVITE_CODE"]
             )
             password_hash = generate_password_hash(password)
-            user_id = db.create_user(username, password_hash)
+            user_id = db.create_user(username, email, password_hash)
             login_user(AuthUser(db.get_user(user_id)))
             return redirect(url_for("businesses"))
-        except sqlite3.IntegrityError:
-            flash("That username is already taken.")
+        except sqlite3.IntegrityError as e:
+            if "username" in str(e):
+                flash("That username is already taken.")
+            else:
+                flash(
+                    "That email or username can't be used — if you already have an "
+                    "account, try logging in or use Forgot password."
+                )
         except ValueError as e:
             flash(str(e))
-        return render_template("signup.html", form_username=request.form.get("username", ""))
+        return render_template(
+            "signup.html",
+            form_username=request.form.get("username", ""),
+            form_email=request.form.get("email", ""),
+        )
 
-    return render_template("signup.html", form_username="")
+    return render_template("signup.html", form_username="", form_email="")
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -127,6 +204,73 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for("login"))
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for("businesses"))
+
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip()
+        if email:
+            user = db.get_user_by_email(email)
+            if user and _should_send(email):
+                token = generate_reset_token(user)
+                reset_url = url_for("reset_password", token=token, _external=True)
+                threading.Thread(
+                    target=_send_reset_email_safe, args=(email, reset_url), daemon=True
+                ).start()
+        flash("If an account with that email exists, we've sent a password reset link.")
+        return redirect(url_for("login"))
+
+    return render_template("forgot_password.html")
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    user = verify_reset_token(token)
+    if user is None:
+        flash("That password reset link is invalid or has expired.")
+        return redirect(url_for("forgot_password"))
+
+    if request.method == "POST":
+        try:
+            password = validation.validate_password(request.form.get("password"))
+            if password != request.form.get("confirm_password"):
+                raise ValueError("Passwords do not match.")
+            db.update_user_password(user["id"], generate_password_hash(password))
+            flash("Your password has been reset. Please log in.")
+            return redirect(url_for("login"))
+        except ValueError as e:
+            flash(str(e))
+            return render_template("reset_password.html", token=token)
+
+    return render_template("reset_password.html", token=token)
+
+
+@app.route("/account", methods=["GET", "POST"])
+@login_required
+def account():
+    user_row = db.get_user(current_user.id)
+
+    if request.method == "POST":
+        try:
+            if not check_password_hash(
+                user_row["password_hash"], request.form.get("current_password", "")
+            ):
+                raise ValueError("Current password is incorrect.")
+            email = validation.validate_email(request.form.get("email"))
+            db.update_user_email(current_user.id, email)
+            flash("Email updated.")
+            return redirect(url_for("account"))
+        except sqlite3.IntegrityError:
+            flash("That email is already associated with another account.")
+        except ValueError as e:
+            flash(str(e))
+        return render_template("account.html", email=request.form.get("email", ""))
+
+    return render_template("account.html", email=user_row["email"] or "")
 
 
 @app.route("/businesses", methods=["GET", "POST"])
