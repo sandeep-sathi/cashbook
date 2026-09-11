@@ -364,24 +364,6 @@ def calculator():
     )
 
 
-@app.route("/calculator/share.png")
-@login_required
-def share_calculation_png():
-    form = _calculator_form(request.args)
-    try:
-        result = _compute_calculator_result(form)
-    except ValueError as e:
-        flash(str(e))
-        return redirect(url_for("calculator", **request.args))
-
-    png_bytes = interest.generate_share_image(form, result)
-    return Response(
-        png_bytes,
-        mimetype="image/png",
-        headers={"Content-Disposition": 'inline; filename="interest-calculation.png"'},
-    )
-
-
 @app.route("/books")
 @login_required
 def books():

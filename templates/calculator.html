@@ -76,9 +76,5 @@
                 <span class="calc-result-value">&#8377;{{ result.total_amount|inr }}</span>
             </div>
         </div>
-
-        <a class="button share-button"
-           href="{{ url_for('share_calculation_png', mode=form.mode, amount=form.amount, rate=form.rate, rate_basis=form.rate_basis, compound=form.compound, period_years=form.period_years, period_months=form.period_months, period_days=form.period_days, from_date=form.from_date, to_date=form.to_date) }}"
-           target="_blank" rel="noopener">Share as image</a>
     {% endif %}
 {% endblock %}
