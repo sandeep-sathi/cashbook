@@ -328,8 +328,9 @@ form > button[type="submit"] { display: block; width: 100%; }
 .mode-toggle:has(input[value="period"]:checked) ~ .date-fields { display: none; }
 .period-inputs { display: flex; gap: 0.6rem; margin-top: 0.3rem; }
 .period-inputs input { text-align: center; }
-.date-fields { display: flex; gap: 0.6rem; }
+.date-fields { display: flex; align-items: flex-start; gap: 0.6rem; }
 .date-fields label { flex: 1; }
+.date-fields input { height: 44px; }
 
 .calc-actions { display: flex; gap: 0.6rem; }
 .calc-actions button, .calc-actions .button { flex: 1; margin-top: 0.6rem; }
@@ -508,6 +509,7 @@ body.calc-page .segmented-toggle label { padding: 0.5rem; min-height: 38px; font
 body.calc-page .rate-row { gap: 0.6rem; }
 body.calc-page .period-fields, body.calc-page .date-fields { margin: 0.35rem 0; }
 body.calc-page .period-inputs { margin-top: 0.15rem; }
+body.calc-page .date-fields input { height: 38px; }
 body.calc-page .calc-actions button,
 body.calc-page .calc-actions .button { margin-top: 0.4rem; min-height: 40px; padding: 0.55rem 1rem; }
 body.calc-page .calc-results { margin-top: 0.6rem; }
