@@ -1,71 +1,81 @@
 {% extends "base.html" %}
 {% block title %}{{ business['name'] }} - Cashbook{% endblock %}
+{% block bodyclass %}has-bottom-bar{% endblock %}
 {% block content %}
-    <p><a href="{{ url_for('businesses') }}">&larr; All businesses</a></p>
+    <a class="back-link" href="{{ url_for('businesses') }}">&larr; Businesses</a>
     <h1>{{ business['name'] }}</h1>
 
-    <div class="actions">
-        <a class="button" href="{{ url_for('new_transaction', business_id=business['id']) }}">+ Add transaction</a>
-        <a class="button" href="{{ url_for('export_csv', business_id=business['id'], **query_args) }}">Export CSV</a>
+    <div class="summary-bar">
+        <div class="summary-stat in">
+            <span class="label">Cash In</span>
+            <span class="value">{{ total_in|money }}</span>
+        </div>
+        <div class="summary-stat out">
+            <span class="label">Cash Out</span>
+            <span class="value">{{ total_out|money }}</span>
+        </div>
+        <div class="summary-stat net">
+            <span class="label">Net Balance</span>
+            <span class="value">{{ net|money }}</span>
+        </div>
     </div>
 
-    <form method="get" class="filters" action="{{ url_for('ledger', business_id=business['id']) }}">
-        <label>From <input type="date" name="date_from" value="{{ filters.date_from or '' }}"></label>
-        <label>To <input type="date" name="date_to" value="{{ filters.date_to or '' }}"></label>
-        <label>
-            Category
-            <select name="category_id">
-                <option value="">All</option>
-                {% for c in categories %}
-                    <option value="{{ c['id'] }}" {% if filters.category_id and filters.category_id|int == c['id'] %}selected{% endif %}>{{ c['name'] }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <label>Search <input type="text" name="q" value="{{ filters.q or '' }}" placeholder="description"></label>
-        <button type="submit">Filter</button>
-        <a href="{{ url_for('ledger', business_id=business['id']) }}">Clear</a>
-    </form>
+    <details class="filters-panel">
+        <summary>Filter &amp; search</summary>
+        <form method="get" class="filters" action="{{ url_for('ledger', business_id=business['id']) }}">
+            <label>From <input type="date" name="date_from" value="{{ filters.date_from or '' }}"></label>
+            <label>To <input type="date" name="date_to" value="{{ filters.date_to or '' }}"></label>
+            <label>
+                Category
+                <select name="category_id">
+                    <option value="">All</option>
+                    {% for c in categories %}
+                        <option value="{{ c['id'] }}" {% if filters.category_id and filters.category_id|int == c['id'] %}selected{% endif %}>{{ c['name'] }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Search <input type="text" name="q" value="{{ filters.q or '' }}" placeholder="description"></label>
+            <div class="filters-actions">
+                <button type="submit">Apply</button>
+                <a href="{{ url_for('ledger', business_id=business['id']) }}">Clear</a>
+            </div>
+        </form>
+    </details>
 
-    <div class="summary">
-        <span>Total in: {{ total_in|money }}</span>
-        <span>Total out: {{ total_out|money }}</span>
-        <span>Net: {{ net|money }}</span>
+    <div class="ledger-toolbar">
+        <a class="text-link" href="{{ url_for('export_csv', business_id=business['id'], **query_args) }}">Export CSV</a>
     </div>
 
-    {% if transactions %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Category</th>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th>Balance</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for t in transactions %}
-                    <tr class="{{ t['type'] }}">
-                        <td>{{ t['date'] }}</td>
-                        <td>{{ t['type'] }}</td>
-                        <td>{{ t['category_name'] or '' }}</td>
-                        <td>{{ t['description'] or '' }}</td>
-                        <td>{{ t['amount_cents']|money }}</td>
-                        <td>{{ t['running_balance_cents']|money }}</td>
-                        <td class="row-actions">
-                            <a href="{{ url_for('edit_transaction', business_id=business['id'], txn_id=t['id']) }}">Edit</a>
-                            <form method="post" action="{{ url_for('delete_transaction', business_id=business['id'], txn_id=t['id']) }}" onsubmit="return confirm('Delete this transaction?');">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit">Delete</button>
-                            </form>
-                        </td>
-                    </tr>
+    {% if grouped %}
+        {% for group in grouped %}
+            <div class="date-group">
+                <div class="date-group-header">{{ group.date }}</div>
+                {% for t in group.rows %}
+                    <div class="txn-row">
+                        <a class="txn-main" href="{{ url_for('edit_transaction', business_id=business['id'], txn_id=t['id']) }}">
+                            <div class="txn-info">
+                                <span class="txn-desc">{{ t['description'] or t['category_name'] or 'No description' }}</span>
+                                {% if t['category_name'] %}<span class="txn-category">{{ t['category_name'] }}</span>{% endif %}
+                            </div>
+                            <div class="txn-amounts">
+                                <span class="txn-amount {{ t['type'] }}">{{ '+' if t['type'] == 'in' else '−' }}{{ t['amount_cents']|money }}</span>
+                                <span class="txn-balance">Bal {{ t['running_balance_cents']|money }}</span>
+                            </div>
+                        </a>
+                        <form method="post" class="txn-delete" action="{{ url_for('delete_transaction', business_id=business['id'], txn_id=t['id']) }}" onsubmit="return confirm('Delete this transaction?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" aria-label="Delete transaction">&times;</button>
+                        </form>
+                    </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        {% endfor %}
     {% else %}
         <p class="empty">No transactions match.</p>
     {% endif %}
+
+    <div class="bottom-bar">
+        <a class="bottom-btn cash-in" href="{{ url_for('new_transaction', business_id=business['id'], type='in') }}">+ Cash In</a>
+        <a class="bottom-btn cash-out" href="{{ url_for('new_transaction', business_id=business['id'], type='out') }}">&minus; Cash Out</a>
+    </div>
 {% endblock %}

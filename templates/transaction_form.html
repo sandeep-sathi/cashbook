@@ -1,30 +1,32 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Edit' if action == 'edit' else 'Add' }} transaction - {{ business['name'] }}{% endblock %}
 {% block content %}
-    <p><a href="{{ url_for('ledger', business_id=business['id']) }}">&larr; {{ business['name'] }}</a></p>
-    <h1>{{ 'Edit' if action == 'edit' else 'Add' }} transaction</h1>
+    <a class="back-link" href="{{ url_for('ledger', business_id=business['id']) }}">&larr; {{ business['name'] }}</a>
+    <h1>{{ 'Edit transaction' if action == 'edit' else ('Add Cash In' if txn.type == 'in' else 'Add Cash Out') }}</h1>
 
     <form method="post" action="{{ url_for('edit_transaction', business_id=business['id'], txn_id=txn_id) if action == 'edit' else url_for('new_transaction', business_id=business['id']) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <fieldset>
+            <div class="type-toggle">
+                <label><input type="radio" name="type" value="in" {% if txn.type == 'in' %}checked{% endif %}> Cash In</label>
+                <label class="out"><input type="radio" name="type" value="out" {% if txn.type == 'out' %}checked{% endif %}> Cash Out</label>
+            </div>
+        </fieldset>
+
+        <label>
+            Amount
+            <input type="text" inputmode="decimal" name="amount" value="{{ txn.amount or '' }}" required placeholder="0.00">
+        </label>
+
         <label>
             Date
             <input type="date" name="date" value="{{ txn.date }}" required>
         </label>
 
-        <fieldset>
-            <legend>Type</legend>
-            <label><input type="radio" name="type" value="in" {% if txn.type == 'in' %}checked{% endif %}> Cash in</label>
-            <label><input type="radio" name="type" value="out" {% if txn.type == 'out' %}checked{% endif %}> Cash out</label>
-        </fieldset>
-
-        <label>
-            Amount
-            <input type="text" name="amount" value="{{ txn.amount or '' }}" required placeholder="0.00">
-        </label>
-
         <label>
             Category
-            <input type="text" name="category" value="{{ txn.category or '' }}" list="category-list" maxlength="50">
+            <input type="text" name="category" value="{{ txn.category or '' }}" list="category-list" maxlength="50" placeholder="Optional">
             <datalist id="category-list">
                 {% for c in business_categories %}<option value="{{ c['name'] }}">{% endfor %}
             </datalist>
@@ -32,7 +34,7 @@
 
         <label>
             Description
-            <input type="text" name="description" value="{{ txn.description or '' }}" maxlength="500">
+            <input type="text" name="description" value="{{ txn.description or '' }}" maxlength="500" placeholder="Optional">
         </label>
 
         <button type="submit">Save</button>

@@ -1,25 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Businesses - Cashbook{% endblock %}
 {% block content %}
-    <h1>Businesses</h1>
+    <h1>Your Businesses</h1>
 
     {% if businesses %}
         <ul class="business-list">
             {% for b in businesses %}
-                <li><a href="{{ url_for('ledger', business_id=b['id']) }}">{{ b['name'] }}</a></li>
+                <li><a href="{{ url_for('ledger', business_id=b['id']) }}"><span>{{ b['name'] }}</span><span class="chevron">&rsaquo;</span></a></li>
             {% endfor %}
         </ul>
     {% else %}
-        <p class="empty">No businesses yet. Create one below to get started.</p>
+        <p class="empty">No businesses yet. Add one below to get started.</p>
     {% endif %}
 
-    <h2>Add a business</h2>
+    <h2 id="new-business-form">Add a business</h2>
     <form method="post" action="{{ url_for('businesses') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>
             Name
-            <input type="text" name="name" value="{{ form_name }}" required maxlength="100">
+            <input type="text" name="name" value="{{ form_name }}" required maxlength="100" placeholder="e.g. My Shop">
         </label>
-        <button type="submit">Create</button>
+        <button type="submit">Create business</button>
     </form>
+
+    <a class="fab" href="#new-business-form" aria-label="Add a business">+</a>
 {% endblock %}

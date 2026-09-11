@@ -160,10 +160,16 @@ def ledger(business_id):
 
     query_args = {k: v for k, v in filters.items() if v}
 
+    grouped = []
+    for r in reversed(rows):
+        if not grouped or grouped[-1]["date"] != r["date"]:
+            grouped.append({"date": r["date"], "rows": []})
+        grouped[-1]["rows"].append(r)
+
     return render_template(
         "ledger.html",
         business=business,
-        transactions=rows,
+        grouped=grouped,
         categories=db.list_categories(business_id),
         filters=filters,
         query_args=query_args,
@@ -203,11 +209,15 @@ def new_transaction(business_id):
                 business_categories=db.list_categories(business_id),
             )
 
+    default_type = request.args.get("type")
+    if default_type not in ("in", "out"):
+        default_type = "in"
+
     return render_template(
         "transaction_form.html",
         business=business,
         action="new",
-        txn={"date": date.today().isoformat(), "type": "in"},
+        txn={"date": date.today().isoformat(), "type": default_type},
         business_categories=db.list_categories(business_id),
     )
 
