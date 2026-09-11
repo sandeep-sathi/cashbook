@@ -24,6 +24,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
+import interest
 import mailer
 import validation
 
@@ -136,6 +137,11 @@ def _send_reset_email_safe(to_email, reset_url):
 @app.template_filter("money")
 def money_filter(cents):
     return f"{cents / 100:,.2f}"
+
+
+@app.template_filter("inr")
+def inr_filter(value):
+    return interest.format_inr(value)
 
 
 @app.template_filter("timeago")
@@ -297,6 +303,83 @@ def account():
         return render_template("account.html", email=request.form.get("email", ""))
 
     return render_template("account.html", email=user_row["email"] or "")
+
+
+def _calculator_form(args):
+    mode = args.get("mode") if args.get("mode") in ("period", "date") else "period"
+    rate_basis = args.get("rate_basis") if args.get("rate_basis") in ("year", "month") else "year"
+    compound = args.get("compound")
+    if compound not in dict(interest.COMPOUND_OPTIONS):
+        compound = "none"
+
+    return {
+        "mode": mode,
+        "amount": args.get("amount", ""),
+        "rate": args.get("rate", ""),
+        "rate_basis": rate_basis,
+        "compound": compound,
+        "period_years": args.get("period_years", ""),
+        "period_months": args.get("period_months", ""),
+        "period_days": args.get("period_days", ""),
+        "from_date": args.get("from_date", ""),
+        "to_date": args.get("to_date", ""),
+    }
+
+
+def _compute_calculator_result(form):
+    """Raises ValueError on bad input; returns the result dict on success."""
+    principal = interest.parse_principal(form["amount"])
+    rate = interest.parse_rate(form["rate"])
+    if form["mode"] == "date":
+        total_days = interest.resolve_total_days_from_dates(form["from_date"], form["to_date"])
+    else:
+        total_days = interest.resolve_total_days_from_period(
+            form["period_years"], form["period_months"], form["period_days"]
+        )
+    interest_amt, total_amt = interest.calculate(
+        principal, rate, form["rate_basis"], form["compound"], total_days
+    )
+    return {
+        "principal": principal,
+        "interest": interest_amt,
+        "total_days": total_days,
+        "total_amount": total_amt,
+    }
+
+
+@app.route("/calculator")
+@login_required
+def calculator():
+    form = _calculator_form(request.args)
+
+    result = None
+    if request.args.get("calculated"):
+        try:
+            result = _compute_calculator_result(form)
+        except ValueError as e:
+            flash(str(e))
+
+    return render_template(
+        "calculator.html", form=form, result=result, compound_options=interest.COMPOUND_OPTIONS
+    )
+
+
+@app.route("/calculator/share.png")
+@login_required
+def share_calculation_png():
+    form = _calculator_form(request.args)
+    try:
+        result = _compute_calculator_result(form)
+    except ValueError as e:
+        flash(str(e))
+        return redirect(url_for("calculator", **request.args))
+
+    png_bytes = interest.generate_share_image(form, result)
+    return Response(
+        png_bytes,
+        mimetype="image/png",
+        headers={"Content-Disposition": 'inline; filename="interest-calculation.png"'},
+    )
 
 
 @app.route("/books")

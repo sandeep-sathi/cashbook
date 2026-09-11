@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Interest Calculator - Cashbook{% endblock %}
+{% block content %}
+    <a class="back-link" href="{{ url_for('books') }}">&larr; Books</a>
+    <h1>Interest Calculator</h1>
+
+    <form method="get" action="{{ url_for('calculator') }}">
+        <input type="hidden" name="calculated" value="1">
+
+        <div class="segmented-toggle mode-toggle">
+            <label><input type="radio" name="mode" value="period" {% if form.mode != 'date' %}checked{% endif %}> Period</label>
+            <label><input type="radio" name="mode" value="date" {% if form.mode == 'date' %}checked{% endif %}> Date</label>
+        </div>
+
+        <label>
+            Amount
+            <input type="text" inputmode="decimal" name="amount" value="{{ form.amount }}" placeholder="0.00">
+        </label>
+
+        <div class="rate-row">
+            <label>
+                Interest % <span class="hint">(max 50%)</span>
+                <input type="text" inputmode="decimal" name="rate" value="{{ form.rate }}" placeholder="0.00">
+            </label>
+            <div class="segmented-toggle small">
+                <label><input type="radio" name="rate_basis" value="year" {% if form.rate_basis != 'month' %}checked{% endif %}> Year</label>
+                <label><input type="radio" name="rate_basis" value="month" {% if form.rate_basis == 'month' %}checked{% endif %}> Month</label>
+            </div>
+        </div>
+
+        <label>
+            Compound Interval
+            <select name="compound">
+                {% for value, label in compound_options %}
+                    <option value="{{ value }}" {% if form.compound == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <div class="period-fields">
+            <label>Period</label>
+            <div class="period-inputs">
+                <input type="number" name="period_years" min="0" placeholder="Year" value="{{ form.period_years }}">
+                <input type="number" name="period_months" min="0" placeholder="Month" value="{{ form.period_months }}">
+                <input type="number" name="period_days" min="0" placeholder="Day" value="{{ form.period_days }}">
+            </div>
+        </div>
+
+        <div class="date-fields">
+            <label>From Date <input type="date" name="from_date" value="{{ form.from_date }}"></label>
+            <label>To Date <input type="date" name="to_date" value="{{ form.to_date }}"></label>
+        </div>
+
+        <div class="calc-actions">
+            <button type="submit">Calculate</button>
+            <a class="button button-secondary" href="{{ url_for('calculator') }}">Reset</a>
+        </div>
+    </form>
+
+    {% if result %}
+        <div class="calc-results">
+            <div class="calc-result-row">
+                <span class="calc-result-label">Principal Amount</span>
+                <span class="calc-result-value">&#8377;{{ result.principal|inr }}</span>
+            </div>
+            <div class="calc-result-row">
+                <span class="calc-result-label">Total Interest</span>
+                <span class="calc-result-value">&#8377;{{ result.interest|inr }}</span>
+            </div>
+            <div class="calc-result-row">
+                <span class="calc-result-label">Total Days</span>
+                <span class="calc-result-value">{{ result.total_days }}</span>
+            </div>
+            <div class="calc-result-row total">
+                <span class="calc-result-label">Total Amount</span>
+                <span class="calc-result-value">&#8377;{{ result.total_amount|inr }}</span>
+            </div>
+        </div>
+
+        <a class="button share-button"
+           href="{{ url_for('share_calculation_png', mode=form.mode, amount=form.amount, rate=form.rate, rate_basis=form.rate_basis, compound=form.compound, period_years=form.period_years, period_months=form.period_months, period_days=form.period_days, from_date=form.from_date, to_date=form.to_date) }}"
+           target="_blank" rel="noopener">Share as image</a>
+    {% endif %}
+{% endblock %}
