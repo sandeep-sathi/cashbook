@@ -12,7 +12,7 @@
                             <span class="book-name">{{ b['name'] }}</span>
                             <span class="book-updated">Updated {{ b['updated_at']|timeago }}</span>
                         </a>
-                        <details class="book-menu">
+                        <details class="book-menu" name="book-menu">
                             <summary aria-label="Book options">&#8942;</summary>
                             <div class="book-menu-panel">
                                 <a href="{{ url_for('rename_book', book_id=b['id']) }}">Rename</a>
