@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Businesses - Cashbook{% endblock %}
+{% block content %}
+    <h1>Businesses</h1>
+
+    {% if businesses %}
+        <ul class="business-list">
+            {% for b in businesses %}
+                <li><a href="{{ url_for('ledger', business_id=b['id']) }}">{{ b['name'] }}</a></li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="empty">No businesses yet. Create one below to get started.</p>
+    {% endif %}
+
+    <h2>Add a business</h2>
+    <form method="post" action="{{ url_for('businesses') }}">
+        <label>
+            Name
+            <input type="text" name="name" value="{{ form_name }}" required maxlength="100">
+        </label>
+        <button type="submit">Create</button>
+    </form>
+{% endblock %}
