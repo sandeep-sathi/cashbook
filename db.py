@@ -198,23 +198,57 @@ def get_or_create_category(book_id, name):
     return cur.lastrowid
 
 
+# --- parties ---------------------------------------------------------
+
+def list_parties(book_id):
+    return get_db().execute(
+        "SELECT * FROM parties WHERE book_id = ? ORDER BY name COLLATE NOCASE",
+        (book_id,),
+    ).fetchall()
+
+
+def get_or_create_party(book_id, name):
+    if not name:
+        return None
+    db = get_db()
+    row = db.execute(
+        "SELECT id FROM parties WHERE book_id = ? AND name = ? COLLATE NOCASE",
+        (book_id, name),
+    ).fetchone()
+    if row:
+        return row["id"]
+    cur = db.execute(
+        "INSERT INTO parties (book_id, name) VALUES (?, ?)",
+        (book_id, name),
+    )
+    db.commit()
+    return cur.lastrowid
+
+
 # --- transactions ---------------------------------------------------------
 
-def list_transactions(book_id, date_from=None, date_to=None, category_id=None, q=None):
+def list_transactions(
+    book_id, date_from=None, date_to=None, category_id=None, party_id=None,
+    payment_mode=None, q=None,
+):
     sql = """
         WITH running AS (
-          SELECT t.id, t.date, t.type, t.amount_cents, t.description,
+          SELECT t.id, t.date, t.type, t.amount_cents, t.description, t.payment_mode,
                  c.id AS category_id, c.name AS category_name,
+                 p.id AS party_id, p.name AS party_name,
                  SUM(CASE WHEN t.type='in' THEN t.amount_cents ELSE -t.amount_cents END)
                      OVER (ORDER BY t.date, t.id) AS running_balance_cents
           FROM transactions t
           LEFT JOIN categories c ON c.id = t.category_id
+          LEFT JOIN parties p ON p.id = t.party_id
           WHERE t.book_id = :book_id
         )
         SELECT * FROM running
         WHERE (:date_from IS NULL OR date >= :date_from)
           AND (:date_to   IS NULL OR date <= :date_to)
           AND (:category_id IS NULL OR category_id = :category_id)
+          AND (:party_id IS NULL OR party_id = :party_id)
+          AND (:payment_mode IS NULL OR payment_mode = :payment_mode)
           AND (:q IS NULL OR description LIKE '%' || :q || '%')
         ORDER BY date, id
     """
@@ -225,17 +259,22 @@ def list_transactions(book_id, date_from=None, date_to=None, category_id=None, q
             "date_from": date_from,
             "date_to": date_to,
             "category_id": category_id,
+            "party_id": party_id,
+            "payment_mode": payment_mode,
             "q": q,
         },
     ).fetchall()
 
 
-def create_transaction(book_id, date, type_, amount_cents, category_id, description):
+def create_transaction(
+    book_id, date, type_, amount_cents, category_id, description, party_id, payment_mode
+):
     db = get_db()
     db.execute(
-        """INSERT INTO transactions (book_id, date, type, amount_cents, category_id, description)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (book_id, date, type_, amount_cents, category_id, description),
+        """INSERT INTO transactions
+           (book_id, date, type, amount_cents, category_id, description, party_id, payment_mode)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (book_id, date, type_, amount_cents, category_id, description, party_id, payment_mode),
     )
     touch_book(book_id)
     db.commit()
@@ -248,13 +287,16 @@ def get_transaction(book_id, txn_id):
     ).fetchone()
 
 
-def update_transaction(book_id, txn_id, date, type_, amount_cents, category_id, description):
+def update_transaction(
+    book_id, txn_id, date, type_, amount_cents, category_id, description, party_id, payment_mode
+):
     db = get_db()
     db.execute(
         """UPDATE transactions
-           SET date = ?, type = ?, amount_cents = ?, category_id = ?, description = ?
+           SET date = ?, type = ?, amount_cents = ?, category_id = ?, description = ?,
+               party_id = ?, payment_mode = ?
            WHERE id = ? AND book_id = ?""",
-        (date, type_, amount_cents, category_id, description, txn_id, book_id),
+        (date, type_, amount_cents, category_id, description, party_id, payment_mode, txn_id, book_id),
     )
     touch_book(book_id)
     db.commit()

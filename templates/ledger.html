@@ -34,6 +34,24 @@
                     {% endfor %}
                 </select>
             </label>
+            <label>
+                Party
+                <select name="party_id">
+                    <option value="">All</option>
+                    {% for p in parties %}
+                        <option value="{{ p['id'] }}" {% if filters.party_id and filters.party_id|int == p['id'] %}selected{% endif %}>{{ p['name'] }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Payment Mode
+                <select name="payment_mode">
+                    <option value="">All</option>
+                    {% for value, label in payment_modes %}
+                        <option value="{{ value }}" {% if filters.payment_mode == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
             <label>Search <input type="text" name="q" value="{{ filters.q or '' }}" placeholder="description"></label>
             <div class="filters-actions">
                 <button type="submit">Apply</button>
@@ -54,8 +72,10 @@
                     <div class="txn-row">
                         <a class="txn-main" href="{{ url_for('edit_transaction', book_id=book['id'], txn_id=t['id']) }}">
                             <div class="txn-info">
-                                <span class="txn-desc">{{ t['description'] or t['category_name'] or 'No description' }}</span>
-                                {% if t['category_name'] %}<span class="txn-category">{{ t['category_name'] }}</span>{% endif %}
+                                <span class="txn-desc">{{ t['description'] or t['category_name'] or t['party_name'] or 'No description' }}</span>
+                                {% if t['category_name'] or t['party_name'] %}
+                                    <span class="txn-category">{{ [t['category_name'], t['party_name']] | select | join(' · ') }}</span>
+                                {% endif %}
                             </div>
                             <div class="txn-amounts">
                                 <span class="txn-amount {{ t['type'] }}">{{ '+' if t['type'] == 'in' else '−' }}{{ t['amount_cents']|money }}</span>

@@ -434,6 +434,8 @@ def _filter_args():
         "date_from": request.args.get("date_from") or None,
         "date_to": request.args.get("date_to") or None,
         "category_id": request.args.get("category_id") or None,
+        "party_id": request.args.get("party_id") or None,
+        "payment_mode": request.args.get("payment_mode") or None,
         "q": request.args.get("q") or None,
     }
 
@@ -465,6 +467,8 @@ def ledger(book_id):
         book=book,
         grouped=grouped,
         categories=db.list_categories(book_id),
+        parties=db.list_parties(book_id),
+        payment_modes=validation.PAYMENT_MODES,
         filters=filters,
         query_args=query_args,
         total_in=total_in,
@@ -488,9 +492,13 @@ def new_transaction(book_id):
             amount_cents = validation.parse_amount(request.form.get("amount"))
             category_name = validation.clean_category_name(request.form.get("category"))
             description = validation.clean_description(request.form.get("description"))
+            party_name = validation.clean_party_name(request.form.get("party"))
+            payment_mode = validation.clean_payment_mode(request.form.get("payment_mode"))
             category_id = db.get_or_create_category(book_id, category_name)
+            party_id = db.get_or_create_party(book_id, party_name)
             db.create_transaction(
-                book_id, txn_date, txn_type, amount_cents, category_id, description
+                book_id, txn_date, txn_type, amount_cents, category_id, description,
+                party_id, payment_mode,
             )
             return redirect(url_for("ledger", book_id=book_id))
         except ValueError as e:
@@ -501,6 +509,8 @@ def new_transaction(book_id):
                 action="new",
                 txn=request.form,
                 book_categories=db.list_categories(book_id),
+                book_parties=db.list_parties(book_id),
+                payment_modes=validation.PAYMENT_MODES,
             )
 
     default_type = request.args.get("type")
@@ -513,6 +523,8 @@ def new_transaction(book_id):
         action="new",
         txn={"date": date.today().isoformat(), "type": default_type},
         book_categories=db.list_categories(book_id),
+        book_parties=db.list_parties(book_id),
+        payment_modes=validation.PAYMENT_MODES,
     )
 
 
@@ -536,9 +548,13 @@ def edit_transaction(book_id, txn_id):
             amount_cents = validation.parse_amount(request.form.get("amount"))
             category_name = validation.clean_category_name(request.form.get("category"))
             description = validation.clean_description(request.form.get("description"))
+            party_name = validation.clean_party_name(request.form.get("party"))
+            payment_mode = validation.clean_payment_mode(request.form.get("payment_mode"))
             category_id = db.get_or_create_category(book_id, category_name)
+            party_id = db.get_or_create_party(book_id, party_name)
             db.update_transaction(
-                book_id, txn_id, txn_date, txn_type, amount_cents, category_id, description
+                book_id, txn_id, txn_date, txn_type, amount_cents, category_id, description,
+                party_id, payment_mode,
             )
             return redirect(url_for("ledger", book_id=book_id))
         except ValueError as e:
@@ -550,6 +566,8 @@ def edit_transaction(book_id, txn_id):
                 txn=request.form,
                 txn_id=txn_id,
                 book_categories=db.list_categories(book_id),
+                book_parties=db.list_parties(book_id),
+                payment_modes=validation.PAYMENT_MODES,
             )
 
     category_row = None
@@ -557,12 +575,19 @@ def edit_transaction(book_id, txn_id):
         category_row = next(
             (c for c in db.list_categories(book_id) if c["id"] == txn["category_id"]), None
         )
+    party_row = None
+    if txn["party_id"]:
+        party_row = next(
+            (p for p in db.list_parties(book_id) if p["id"] == txn["party_id"]), None
+        )
     form_values = {
         "date": txn["date"],
         "type": txn["type"],
         "amount": f"{txn['amount_cents'] / 100:.2f}",
         "category": category_row["name"] if category_row else "",
         "description": txn["description"] or "",
+        "party": party_row["name"] if party_row else "",
+        "payment_mode": txn["payment_mode"] or "",
     }
     return render_template(
         "transaction_form.html",
@@ -571,6 +596,8 @@ def edit_transaction(book_id, txn_id):
         txn=form_values,
         txn_id=txn_id,
         book_categories=db.list_categories(book_id),
+        book_parties=db.list_parties(book_id),
+        payment_modes=validation.PAYMENT_MODES,
     )
 
 
@@ -598,14 +625,20 @@ def export_csv(book_id):
     rows = db.list_transactions(book_id, **filters)
 
     buf = io.StringIO()
+    payment_mode_labels = dict(validation.PAYMENT_MODES)
+
     writer = csv.writer(buf)
-    writer.writerow(["Date", "Type", "Category", "Description", "Amount", "Running Balance"])
+    writer.writerow(
+        ["Date", "Type", "Category", "Party", "Payment Mode", "Description", "Amount", "Running Balance"]
+    )
     for r in rows:
         writer.writerow(
             [
                 r["date"],
                 r["type"],
                 r["category_name"] or "",
+                r["party_name"] or "",
+                payment_mode_labels.get(r["payment_mode"], ""),
                 r["description"] or "",
                 f"{r['amount_cents'] / 100:.2f}",
                 f"{r['running_balance_cents'] / 100:.2f}",

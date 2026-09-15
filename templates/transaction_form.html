@@ -33,6 +33,24 @@
         </label>
 
         <label>
+            Party Name
+            <input type="text" name="party" value="{{ txn.party or '' }}" list="party-list" maxlength="50" placeholder="Optional">
+            <datalist id="party-list">
+                {% for p in book_parties %}<option value="{{ p['name'] }}">{% endfor %}
+            </datalist>
+        </label>
+
+        <label>
+            Payment Mode
+            <select name="payment_mode">
+                <option value="">Optional</option>
+                {% for value, label in payment_modes %}
+                    <option value="{{ value }}" {% if txn.payment_mode == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>
             Description
             <input type="text" name="description" value="{{ txn.description or '' }}" maxlength="500" placeholder="Optional">
         </label>

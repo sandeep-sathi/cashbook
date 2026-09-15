@@ -46,6 +46,40 @@ def clean_category_name(s):
     return s
 
 
+def clean_party_name(s):
+    if s is None:
+        return None
+    s = s.strip()
+    if not s:
+        return None
+    if len(s) > 50:
+        raise ValueError("Party name must be 50 characters or fewer.")
+    return s
+
+
+PAYMENT_MODES = [
+    ("cash", "Cash"),
+    ("bank_transfer", "Bank Transfer"),
+    ("upi", "UPI"),
+    ("cheque", "Cheque"),
+    ("card", "Card"),
+    ("other", "Other"),
+]
+
+_PAYMENT_MODE_VALUES = {value for value, _ in PAYMENT_MODES}
+
+
+def clean_payment_mode(s):
+    if s is None:
+        return None
+    s = s.strip()
+    if not s:
+        return None
+    if s not in _PAYMENT_MODE_VALUES:
+        raise ValueError("Invalid payment mode.")
+    return s
+
+
 def clean_description(s):
     if s is None:
         return None
