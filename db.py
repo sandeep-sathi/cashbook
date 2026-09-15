@@ -233,11 +233,11 @@ def list_transactions(
 ):
     sql = """
         WITH running AS (
-          SELECT t.id, t.date, t.type, t.amount_cents, t.description, t.payment_mode,
+          SELECT t.id, t.date, t.time, t.type, t.amount_cents, t.description, t.payment_mode,
                  c.id AS category_id, c.name AS category_name,
                  p.id AS party_id, p.name AS party_name,
                  SUM(CASE WHEN t.type='in' THEN t.amount_cents ELSE -t.amount_cents END)
-                     OVER (ORDER BY t.date, t.id) AS running_balance_cents
+                     OVER (ORDER BY t.date, t.time, t.id) AS running_balance_cents
           FROM transactions t
           LEFT JOIN categories c ON c.id = t.category_id
           LEFT JOIN parties p ON p.id = t.party_id
@@ -250,7 +250,7 @@ def list_transactions(
           AND (:party_id IS NULL OR party_id = :party_id)
           AND (:payment_mode IS NULL OR payment_mode = :payment_mode)
           AND (:q IS NULL OR description LIKE '%' || :q || '%')
-        ORDER BY date, id
+        ORDER BY date, time, id
     """
     return get_db().execute(
         sql,
@@ -267,14 +267,14 @@ def list_transactions(
 
 
 def create_transaction(
-    book_id, date, type_, amount_cents, category_id, description, party_id, payment_mode
+    book_id, date, time, type_, amount_cents, category_id, description, party_id, payment_mode
 ):
     db = get_db()
     db.execute(
         """INSERT INTO transactions
-           (book_id, date, type, amount_cents, category_id, description, party_id, payment_mode)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (book_id, date, type_, amount_cents, category_id, description, party_id, payment_mode),
+           (book_id, date, time, type, amount_cents, category_id, description, party_id, payment_mode)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (book_id, date, time, type_, amount_cents, category_id, description, party_id, payment_mode),
     )
     touch_book(book_id)
     db.commit()
@@ -288,15 +288,15 @@ def get_transaction(book_id, txn_id):
 
 
 def update_transaction(
-    book_id, txn_id, date, type_, amount_cents, category_id, description, party_id, payment_mode
+    book_id, txn_id, date, time, type_, amount_cents, category_id, description, party_id, payment_mode
 ):
     db = get_db()
     db.execute(
         """UPDATE transactions
-           SET date = ?, type = ?, amount_cents = ?, category_id = ?, description = ?,
+           SET date = ?, time = ?, type = ?, amount_cents = ?, category_id = ?, description = ?,
                party_id = ?, payment_mode = ?
            WHERE id = ? AND book_id = ?""",
-        (date, type_, amount_cents, category_id, description, party_id, payment_mode, txn_id, book_id),
+        (date, time, type_, amount_cents, category_id, description, party_id, payment_mode, txn_id, book_id),
     )
     touch_book(book_id)
     db.commit()

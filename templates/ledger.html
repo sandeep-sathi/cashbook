@@ -73,9 +73,9 @@
                         <a class="txn-main" href="{{ url_for('edit_transaction', book_id=book['id'], txn_id=t['id']) }}">
                             <div class="txn-info">
                                 <span class="txn-desc">{{ t['description'] or t['category_name'] or t['party_name'] or 'No description' }}</span>
-                                {% if t['category_name'] or t['party_name'] %}
-                                    <span class="txn-category">{{ [t['category_name'], t['party_name']] | select | join(' · ') }}</span>
-                                {% endif %}
+                                <span class="txn-category">
+                                    {{ t['time']|time12 }}{% if t['category_name'] or t['party_name'] %} · {{ [t['category_name'], t['party_name']] | select | join(' · ') }}{% endif %}
+                                </span>
                             </div>
                             <div class="txn-amounts">
                                 <span class="txn-amount {{ t['type'] }}">{{ '+' if t['type'] == 'in' else '−' }}{{ t['amount_cents']|money }}</span>

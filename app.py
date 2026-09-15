@@ -144,6 +144,11 @@ def inr_filter(value):
     return interest.format_inr(value)
 
 
+@app.template_filter("time12")
+def time12_filter(value):
+    return datetime.strptime(value, "%H:%M").strftime("%I:%M %p").lstrip("0")
+
+
 @app.template_filter("timeago")
 def timeago_filter(value):
     if not value:
@@ -488,6 +493,7 @@ def new_transaction(book_id):
     if request.method == "POST":
         try:
             txn_date = validation.parse_date(request.form.get("date"))
+            txn_time = validation.parse_time(request.form.get("time"))
             txn_type = validation.validate_type(request.form.get("type"))
             amount_cents = validation.parse_amount(request.form.get("amount"))
             category_name = validation.clean_category_name(request.form.get("category"))
@@ -497,7 +503,7 @@ def new_transaction(book_id):
             category_id = db.get_or_create_category(book_id, category_name)
             party_id = db.get_or_create_party(book_id, party_name)
             db.create_transaction(
-                book_id, txn_date, txn_type, amount_cents, category_id, description,
+                book_id, txn_date, txn_time, txn_type, amount_cents, category_id, description,
                 party_id, payment_mode,
             )
             return redirect(url_for("ledger", book_id=book_id))
@@ -521,7 +527,11 @@ def new_transaction(book_id):
         "transaction_form.html",
         book=book,
         action="new",
-        txn={"date": date.today().isoformat(), "type": default_type},
+        txn={
+            "date": date.today().isoformat(),
+            "time": datetime.now().strftime("%H:%M"),
+            "type": default_type,
+        },
         book_categories=db.list_categories(book_id),
         book_parties=db.list_parties(book_id),
         payment_modes=validation.PAYMENT_MODES,
@@ -544,6 +554,7 @@ def edit_transaction(book_id, txn_id):
     if request.method == "POST":
         try:
             txn_date = validation.parse_date(request.form.get("date"))
+            txn_time = validation.parse_time(request.form.get("time"))
             txn_type = validation.validate_type(request.form.get("type"))
             amount_cents = validation.parse_amount(request.form.get("amount"))
             category_name = validation.clean_category_name(request.form.get("category"))
@@ -553,7 +564,7 @@ def edit_transaction(book_id, txn_id):
             category_id = db.get_or_create_category(book_id, category_name)
             party_id = db.get_or_create_party(book_id, party_name)
             db.update_transaction(
-                book_id, txn_id, txn_date, txn_type, amount_cents, category_id, description,
+                book_id, txn_id, txn_date, txn_time, txn_type, amount_cents, category_id, description,
                 party_id, payment_mode,
             )
             return redirect(url_for("ledger", book_id=book_id))
@@ -582,6 +593,7 @@ def edit_transaction(book_id, txn_id):
         )
     form_values = {
         "date": txn["date"],
+        "time": txn["time"],
         "type": txn["type"],
         "amount": f"{txn['amount_cents'] / 100:.2f}",
         "category": category_row["name"] if category_row else "",
@@ -629,12 +641,13 @@ def export_csv(book_id):
 
     writer = csv.writer(buf)
     writer.writerow(
-        ["Date", "Type", "Category", "Party", "Payment Mode", "Description", "Amount", "Running Balance"]
+        ["Date", "Time", "Type", "Category", "Party", "Payment Mode", "Description", "Amount", "Running Balance"]
     )
     for r in rows:
         writer.writerow(
             [
                 r["date"],
+                r["time"],
                 r["type"],
                 r["category_name"] or "",
                 r["party_name"] or "",

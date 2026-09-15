@@ -14,6 +14,15 @@ def parse_date(s):
         raise ValueError("Invalid date.")
 
 
+def parse_time(s):
+    if not s or not s.strip():
+        raise ValueError("Time is required.")
+    try:
+        return datetime.time.fromisoformat(s.strip()).strftime("%H:%M")
+    except ValueError:
+        raise ValueError("Invalid time.")
+
+
 def parse_amount(s):
     if not s or not s.strip():
         raise ValueError("Amount is required.")

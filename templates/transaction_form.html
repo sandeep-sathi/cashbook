@@ -19,10 +19,10 @@
             <input type="text" inputmode="decimal" name="amount" value="{{ txn.amount or '' }}" required placeholder="0.00">
         </label>
 
-        <label>
-            Date
-            <input type="date" name="date" value="{{ txn.date }}" required>
-        </label>
+        <div class="date-fields">
+            <label>Date <input type="date" name="date" value="{{ txn.date }}" required></label>
+            <label>Time <input type="time" name="time" value="{{ txn.time }}" required></label>
+        </div>
 
         <label>
             Category
