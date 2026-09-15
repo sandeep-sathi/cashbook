@@ -61,8 +61,13 @@
     </details>
 
     <div class="ledger-toolbar">
-        <a class="text-link" href="{{ url_for('export_csv', book_id=book['id'], **query_args) }}">Export CSV</a>
-        <a class="text-link" href="{{ url_for('export_pdf', book_id=book['id'], **query_args) }}">Export PDF</a>
+        <details class="export-menu">
+            <summary class="text-link">Export &#9662;</summary>
+            <div class="export-menu-panel">
+                <a href="{{ url_for('export_csv', book_id=book['id'], **query_args) }}">Export as CSV</a>
+                <a href="{{ url_for('export_pdf', book_id=book['id'], **query_args) }}">Export as PDF</a>
+            </div>
+        </details>
     </div>
 
     {% if grouped %}
