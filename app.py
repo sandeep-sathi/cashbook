@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 from collections import deque
-from datetime import date, datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 from flask import Flask, flash, redirect, render_template, request, Response, url_for
@@ -27,6 +27,13 @@ import db
 import interest
 import mailer
 import validation
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _now_ist():
+    return datetime.now(timezone.utc).astimezone(IST)
+
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -523,13 +530,14 @@ def new_transaction(book_id):
     if default_type not in ("in", "out"):
         default_type = "in"
 
+    now = _now_ist()
     return render_template(
         "transaction_form.html",
         book=book,
         action="new",
         txn={
-            "date": date.today().isoformat(),
-            "time": datetime.now().strftime("%H:%M"),
+            "date": now.date().isoformat(),
+            "time": now.strftime("%H:%M"),
             "type": default_type,
         },
         book_categories=db.list_categories(book_id),
@@ -659,7 +667,7 @@ def export_csv(book_id):
         )
 
     safe_name = "".join(c for c in book["name"] if c.isalnum() or c in " -_").strip() or "book"
-    filename = f"{safe_name}_{date.today().isoformat()}.csv"
+    filename = f"{safe_name}_{_now_ist().date().isoformat()}.csv"
     return Response(
         buf.getvalue(),
         mimetype="text/csv",
