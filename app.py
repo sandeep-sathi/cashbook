@@ -23,6 +23,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import charts
 import db
 import interest
 import mailer
@@ -143,7 +144,9 @@ def _send_reset_email_safe(to_email, reset_url):
 
 @app.template_filter("money")
 def money_filter(cents):
-    return f"{cents / 100:,.2f}"
+    rupees, paise = divmod(abs(cents), 100)
+    sign = "-" if cents < 0 else ""
+    return f"{sign}{interest.format_inr(rupees)}.{paise:02d}"
 
 
 @app.template_filter("inr")
@@ -208,14 +211,15 @@ def signup():
             return redirect(url_for("books"))
         except sqlite3.IntegrityError as e:
             if "username" in str(e):
-                flash("That username is already taken.")
+                flash("That username is already taken.", "error")
             else:
                 flash(
                     "That email or username can't be used — if you already have an "
-                    "account, try logging in or use Forgot password."
+                    "account, try logging in or use Forgot password.",
+                    "error",
                 )
         except ValueError as e:
-            flash(str(e))
+            flash(str(e), "error")
         return render_template(
             "signup.html",
             form_username=request.form.get("username", ""),
@@ -237,7 +241,7 @@ def login():
         if user_row and check_password_hash(user_row["password_hash"], password):
             login_user(AuthUser(user_row), remember=bool(request.form.get("remember")))
             return redirect(_safe_next_url(request.args.get("next")) or url_for("books"))
-        flash("Invalid username or password.")
+        flash("Invalid username or password.", "error")
         return render_template("login.html", form_username=username)
 
     return render_template("login.html", form_username="")
@@ -265,7 +269,7 @@ def forgot_password():
                 threading.Thread(
                     target=_send_reset_email_safe, args=(email, reset_url), daemon=True
                 ).start()
-        flash("If an account with that email exists, we've sent a password reset link.")
+        flash("If an account with that email exists, we've sent a password reset link.", "info")
         return redirect(url_for("login"))
 
     return render_template("forgot_password.html")
@@ -275,7 +279,7 @@ def forgot_password():
 def reset_password(token):
     user = verify_reset_token(token)
     if user is None:
-        flash("That password reset link is invalid or has expired.")
+        flash("That password reset link is invalid or has expired.", "error")
         return redirect(url_for("forgot_password"))
 
     if request.method == "POST":
@@ -284,10 +288,10 @@ def reset_password(token):
             if password != request.form.get("confirm_password"):
                 raise ValueError("Passwords do not match.")
             db.update_user_password(user["id"], generate_password_hash(password))
-            flash("Your password has been reset. Please log in.")
+            flash("Your password has been reset. Please log in.", "success")
             return redirect(url_for("login"))
         except ValueError as e:
-            flash(str(e))
+            flash(str(e), "error")
             return render_template("reset_password.html", token=token)
 
     return render_template("reset_password.html", token=token)
@@ -306,12 +310,12 @@ def account():
                 raise ValueError("Current password is incorrect.")
             email = validation.validate_email(request.form.get("email"))
             db.update_user_email(current_user.id, email)
-            flash("Email updated.")
+            flash("Email updated.", "success")
             return redirect(url_for("account"))
         except sqlite3.IntegrityError:
-            flash("That email is already associated with another account.")
+            flash("That email is already associated with another account.", "error")
         except ValueError as e:
-            flash(str(e))
+            flash(str(e), "error")
         return render_template("account.html", email=request.form.get("email", ""))
 
     return render_template("account.html", email=user_row["email"] or "")
@@ -369,7 +373,7 @@ def calculator():
         try:
             result = _compute_calculator_result(form)
         except ValueError as e:
-            flash(str(e))
+            flash(str(e), "error")
 
     return render_template(
         "calculator.html", form=form, result=result, compound_options=interest.COMPOUND_OPTIONS
@@ -391,9 +395,9 @@ def new_book():
             book_id = db.create_book(current_user.id, name)
             return redirect(url_for("ledger", book_id=book_id))
         except sqlite3.IntegrityError:
-            flash("A book with that name already exists.")
+            flash("A book with that name already exists.", "error")
         except ValueError as e:
-            flash(str(e))
+            flash(str(e), "error")
         return render_template("new_book.html", form_name=request.form.get("name", ""))
 
     return render_template("new_book.html", form_name="")
@@ -404,7 +408,7 @@ def new_book():
 def rename_book(book_id):
     book = db.get_book(book_id, current_user.id)
     if book is None:
-        flash("Book not found.")
+        flash("Book not found.", "error")
         return redirect(url_for("books"))
 
     if request.method == "POST":
@@ -413,9 +417,9 @@ def rename_book(book_id):
             db.update_book_name(book_id, current_user.id, name)
             return redirect(url_for("books"))
         except sqlite3.IntegrityError:
-            flash("A book with that name already exists.")
+            flash("A book with that name already exists.", "error")
         except ValueError as e:
-            flash(str(e))
+            flash(str(e), "error")
         return render_template("rename_book.html", book=book, form_name=request.form.get("name", ""))
 
     return render_template("rename_book.html", book=book, form_name=book["name"])
@@ -426,16 +430,16 @@ def rename_book(book_id):
 def delete_book(book_id):
     book = db.get_book(book_id, current_user.id)
     if book is None:
-        flash("Book not found.")
+        flash("Book not found.", "error")
         return redirect(url_for("books"))
 
     if request.method == "POST":
         confirm_name = request.form.get("confirm_name", "")
         if confirm_name != book["name"]:
-            flash("The name you typed doesn't match. Book was not deleted.")
+            flash("The name you typed doesn't match. Book was not deleted.", "error")
             return render_template("delete_book.html", book=book)
         db.delete_book(book_id, current_user.id)
-        flash(f'"{book["name"]}" has been deleted.')
+        flash(f'"{book["name"]}" has been deleted.', "success")
         return redirect(url_for("books"))
 
     return render_template("delete_book.html", book=book)
@@ -457,7 +461,7 @@ def _filter_args():
 def ledger(book_id):
     book = db.get_book(book_id, current_user.id)
     if book is None:
-        flash("Book not found.")
+        flash("Book not found.", "error")
         return redirect(url_for("books"))
 
     filters = _filter_args()
@@ -489,12 +493,56 @@ def ledger(book_id):
     )
 
 
+def _dashboard_date_range():
+    date_from = request.args.get("date_from") or None
+    date_to = request.args.get("date_to") or None
+    if not date_from and not date_to:
+        now = _now_ist()
+        date_from = now.replace(day=1).date().isoformat()
+        date_to = now.date().isoformat()
+    return date_from, date_to
+
+
+@app.route("/books/<int:book_id>/dashboard")
+@login_required
+def dashboard(book_id):
+    book = db.get_book(book_id, current_user.id)
+    if book is None:
+        flash("Book not found.", "error")
+        return redirect(url_for("books"))
+
+    date_from, date_to = _dashboard_date_range()
+
+    monthly = db.monthly_totals(book_id, date_from=date_from, date_to=date_to)
+    out_rows = db.category_breakdown(book_id, "out", date_from=date_from, date_to=date_to)
+    in_rows = db.category_breakdown(book_id, "in", date_from=date_from, date_to=date_to)
+
+    bar_svg = charts.bar_chart(monthly)
+    out_svg, out_legend, total_out = charts.donut_chart(out_rows)
+    in_svg, in_legend, total_in = charts.donut_chart(in_rows)
+
+    return render_template(
+        "dashboard.html",
+        book=book,
+        date_from=date_from,
+        date_to=date_to,
+        bar_svg=bar_svg,
+        out_svg=out_svg,
+        out_legend=out_legend,
+        in_svg=in_svg,
+        in_legend=in_legend,
+        total_in=total_in,
+        total_out=total_out,
+        net=total_in - total_out,
+    )
+
+
 @app.route("/books/<int:book_id>/transactions/new", methods=["GET", "POST"])
 @login_required
 def new_transaction(book_id):
     book = db.get_book(book_id, current_user.id)
     if book is None:
-        flash("Book not found.")
+        flash("Book not found.", "error")
         return redirect(url_for("books"))
 
     if request.method == "POST":
@@ -515,7 +563,7 @@ def new_transaction(book_id):
             )
             return redirect(url_for("ledger", book_id=book_id))
         except ValueError as e:
-            flash(str(e))
+            flash(str(e), "error")
             return render_template(
                 "transaction_form.html",
                 book=book,
@@ -551,12 +599,12 @@ def new_transaction(book_id):
 def edit_transaction(book_id, txn_id):
     book = db.get_book(book_id, current_user.id)
     if book is None:
-        flash("Book not found.")
+        flash("Book not found.", "error")
         return redirect(url_for("books"))
 
     txn = db.get_transaction(book_id, txn_id)
     if txn is None:
-        flash("Transaction not found.")
+        flash("Transaction not found.", "error")
         return redirect(url_for("ledger", book_id=book_id))
 
     if request.method == "POST":
@@ -577,7 +625,7 @@ def edit_transaction(book_id, txn_id):
             )
             return redirect(url_for("ledger", book_id=book_id))
         except ValueError as e:
-            flash(str(e))
+            flash(str(e), "error")
             return render_template(
                 "transaction_form.html",
                 book=book,
@@ -626,7 +674,7 @@ def edit_transaction(book_id, txn_id):
 def delete_transaction(book_id, txn_id):
     book = db.get_book(book_id, current_user.id)
     if book is None:
-        flash("Book not found.")
+        flash("Book not found.", "error")
         return redirect(url_for("books"))
 
     db.delete_transaction(book_id, txn_id)
@@ -638,7 +686,7 @@ def delete_transaction(book_id, txn_id):
 def export_csv(book_id):
     book = db.get_book(book_id, current_user.id)
     if book is None:
-        flash("Book not found.")
+        flash("Book not found.", "error")
         return redirect(url_for("books"))
 
     filters = _filter_args()
