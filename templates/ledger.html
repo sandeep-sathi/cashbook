@@ -5,11 +5,6 @@
     <a class="back-link" href="{{ url_for('books') }}">&larr; Books</a>
     <h1>{{ book['name'] }}</h1>
 
-    <nav class="page-tabs">
-        <a href="{{ url_for('ledger', book_id=book['id']) }}" class="active">Ledger</a>
-        <a href="{{ url_for('dashboard', book_id=book['id']) }}">Dashboard</a>
-    </nav>
-
     <div class="summary-bar">
         <div class="summary-stat in">
             <span class="label">Cash In</span>

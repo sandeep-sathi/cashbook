@@ -23,7 +23,6 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
-import charts
 import db
 import interest
 import mailer
@@ -487,50 +486,6 @@ def ledger(book_id):
         payment_modes=validation.PAYMENT_MODES,
         filters=filters,
         query_args=query_args,
-        total_in=total_in,
-        total_out=total_out,
-        net=total_in - total_out,
-    )
-
-
-def _dashboard_date_range():
-    date_from = request.args.get("date_from") or None
-    date_to = request.args.get("date_to") or None
-    if not date_from and not date_to:
-        now = _now_ist()
-        date_from = now.replace(day=1).date().isoformat()
-        date_to = now.date().isoformat()
-    return date_from, date_to
-
-
-@app.route("/books/<int:book_id>/dashboard")
-@login_required
-def dashboard(book_id):
-    book = db.get_book(book_id, current_user.id)
-    if book is None:
-        flash("Book not found.", "error")
-        return redirect(url_for("books"))
-
-    date_from, date_to = _dashboard_date_range()
-
-    monthly = db.monthly_totals(book_id, date_from=date_from, date_to=date_to)
-    out_rows = db.category_breakdown(book_id, "out", date_from=date_from, date_to=date_to)
-    in_rows = db.category_breakdown(book_id, "in", date_from=date_from, date_to=date_to)
-
-    bar_svg = charts.bar_chart(monthly)
-    out_svg, out_legend, total_out = charts.donut_chart(out_rows)
-    in_svg, in_legend, total_in = charts.donut_chart(in_rows)
-
-    return render_template(
-        "dashboard.html",
-        book=book,
-        date_from=date_from,
-        date_to=date_to,
-        bar_svg=bar_svg,
-        out_svg=out_svg,
-        out_legend=out_legend,
-        in_svg=in_svg,
-        in_legend=in_legend,
         total_in=total_in,
         total_out=total_out,
         net=total_in - total_out,
