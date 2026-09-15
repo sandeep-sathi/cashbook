@@ -143,9 +143,11 @@ def _send_reset_email_safe(to_email, reset_url):
 
 @app.template_filter("money")
 def money_filter(cents):
-    rupees, paise = divmod(abs(cents), 100)
     sign = "-" if cents < 0 else ""
-    return f"{sign}{interest.format_inr(rupees)}.{paise:02d}"
+    rupees, paise = divmod(abs(cents), 100)
+    if paise >= 50:
+        rupees += 1
+    return f"{sign}{interest.format_inr(rupees)}"
 
 
 @app.template_filter("inr")
