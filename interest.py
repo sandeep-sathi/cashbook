@@ -135,6 +135,16 @@ def calculate(principal, rate_pct, rate_basis, compound_interval, total_days):
     )
 
 
+def format_money_cents(cents):
+    """Whole-rupee, Indian-grouped display for a paise-precision cents value
+    (e.g. 123475 -> '1,235', rounded half-up)."""
+    sign = "-" if cents < 0 else ""
+    rupees, paise = divmod(abs(cents), 100)
+    if paise >= 50:
+        rupees += 1
+    return f"{sign}{format_inr(rupees)}"
+
+
 def format_inr(value):
     value = Decimal(value).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     negative = value < 0

@@ -26,6 +26,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import db
 import interest
 import mailer
+import pdf_export
 import validation
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -143,11 +144,7 @@ def _send_reset_email_safe(to_email, reset_url):
 
 @app.template_filter("money")
 def money_filter(cents):
-    sign = "-" if cents < 0 else ""
-    rupees, paise = divmod(abs(cents), 100)
-    if paise >= 50:
-        rupees += 1
-    return f"{sign}{interest.format_inr(rupees)}"
+    return interest.format_money_cents(cents)
 
 
 @app.template_filter("inr")
@@ -676,5 +673,41 @@ def export_csv(book_id):
     return Response(
         buf.getvalue(),
         mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.route("/books/<int:book_id>/export.pdf")
+@login_required
+def export_pdf(book_id):
+    book = db.get_book(book_id, current_user.id)
+    if book is None:
+        flash("Book not found.", "error")
+        return redirect(url_for("books"))
+
+    filters = _filter_args()
+    rows = db.list_transactions(book_id, **filters)
+
+    total_in = sum(r["amount_cents"] for r in rows if r["type"] == "in")
+    total_out = sum(r["amount_cents"] for r in rows if r["type"] == "out")
+
+    pdf_bytes = pdf_export.generate_ledger_pdf(
+        book,
+        rows,
+        filters,
+        db.list_categories(book_id),
+        db.list_parties(book_id),
+        dict(validation.PAYMENT_MODES),
+        total_in,
+        total_out,
+        total_in - total_out,
+        _now_ist().strftime("%d %b %Y, %I:%M %p") + " IST",
+    )
+
+    safe_name = "".join(c for c in book["name"] if c.isalnum() or c in " -_").strip() or "book"
+    filename = f"{safe_name}_{_now_ist().date().isoformat()}.pdf"
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

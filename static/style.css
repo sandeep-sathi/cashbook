@@ -441,7 +441,7 @@ form > button[type="submit"] { display: block; width: 100%; }
 .filters-actions button { margin-top: 0; }
 .filters-actions a { font-size: 0.85rem; color: var(--muted); }
 
-.ledger-toolbar { display: flex; justify-content: flex-end; margin-bottom: 0.75rem; }
+.ledger-toolbar { display: flex; justify-content: flex-end; gap: 1rem; margin-bottom: 0.75rem; }
 
 /* date groups + transaction rows */
 .date-group { margin-bottom: 0.75rem; }
